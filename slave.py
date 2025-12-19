@@ -620,6 +620,6 @@ if __name__ == "__main__":
     async def on_ready():
         await bot.add_cog(Slave(bot))
 
-    with open('database/token.txt') as token_file:
+    with open('database/text_file/token.txt') as token_file:
         token_raw = token_file.read()
     bot.run(token_raw)
