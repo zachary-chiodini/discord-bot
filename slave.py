@@ -199,7 +199,7 @@ class Slave(commands.Cog):
                 f.write(f"{new_color.id},{hexcode}\n")
             # Make colored square image
             img = Image.new("RGB", (256, 256), ((color.value >> 16) & 0xFF, (color.value >> 8) & 0xFF, color.value & 0xFF))
-            img.save(f"colors/{hexcode[1:].lower()}.png", format='PNG')
+            img.save(f"database/colors/{hexcode[1:].lower()}.png", format='PNG')
             await show_color(new_color, 'New Color Created')
             return None
 
@@ -218,7 +218,7 @@ class Slave(commands.Cog):
         async def show_color(color: Role, text: str) -> None:
             filename = f"{color.color.value:06x}.png".lower()
             embed = Embed(title=text, description=color.mention, color=color.color)
-            file = File(f"colors/{filename}", filename=filename)
+            file = File(f"database/colors/{filename}", filename=filename)
             embed.set_image(url=f"attachment://{filename}")
             embed.set_author(name=context.author.display_name, icon_url=context.author.display_avatar.url)
             await context.send(embed=embed, file=file)
@@ -331,10 +331,10 @@ class Slave(commands.Cog):
             permissions = PermissionOverwrite(view_channel=True, send_messages=False, create_public_threads=False, create_polls=False)
             new_channel = await context.guild.create_text_channel(
                 name='🪙gold-coin', category=channel.category, overwrites={copy_item: permissions}, position=channel.position)
-            await new_channel.send(content=f"{copy_item.mention}\n⭐ Worth 250 Points", file=File('items/coin.png'))
+            await new_channel.send(content=f"{copy_item.mention}\n⭐ Worth 250 Points", file=File('database/items/coin.png'))
             # Send item creation message
             embed = Embed(title='New Item Created', description=f"{copy_item.mention}\n⭐ Worth 250 Points", color=copy_item.color)
-            file = File('items/coin.png', filename='coin.png')
+            file = File('database/items/coin.png', filename='coin.png')
             embed.set_image(url=f"attachment://coin.png")
             embed.set_author(name=context.author.display_name, icon_url=context.author.display_avatar.url)
             embed.set_thumbnail(url=member.display_avatar.url)
@@ -602,7 +602,7 @@ class Slave(commands.Cog):
                 embed = Embed(title=title,
                     description=f"{member.mention} {prefix}graded from {level_role.mention} to {new_level_role.mention}",
                     color=new_level_role.color)
-                file = File(f"images/{filename}", filename=filename)
+                file = File(f"database/images/{filename}", filename=filename)
                 embed.set_image(url=f"attachment://{filename}")
                 embed.set_author(name=member.display_name, icon_url=member.display_avatar.url)
                 await channel.guild.system_channel.send(embed=embed, file=file)
