@@ -344,7 +344,7 @@ class Slave(commands.Cog):
             channel = context.guild.get_channel(PURSE_CHANNEL_ID)
             permissions = PermissionOverwrite(view_channel=True, send_messages=False, create_public_threads=False, create_polls=False)
             new_channel = await context.guild.create_text_channel(
-                name='🪙gold-coin', category=channel.category, overwrites={copy_item: permissions}, position=channel.position)
+                name='🪙gold-coin', category=channel.category, overwrites={copy_item: permissions}, position=channel.position - 1)
             await new_channel.send(content=f"{copy_item.mention}\n⭐ Worth 250 Points", file=File('database/items/coin.png'))
             # Send item creation message
             embed = Embed(title='New Item Created', description=f"{copy_item.mention}\n⭐ Worth 250 Points", color=copy_item.color)
