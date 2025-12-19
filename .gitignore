@@ -1,2 +1,7 @@
 __pycache__
+color.txt
+items.txt
+level.txt
+score.txt
+token.txt
 venv
