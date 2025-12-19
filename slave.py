@@ -4,7 +4,6 @@ from math import sqrt
 from os import path
 from random import randint
 from re import fullmatch
-from typing import List, Optional, Tuple
 from time import perf_counter
 
 from discord import Color, Embed, File, Intents, Member, Message, PermissionOverwrite, Role, TextChannel
