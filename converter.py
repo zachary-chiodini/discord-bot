@@ -19,9 +19,8 @@ class Overload(Converter):
     def _cast_mentionable(arg: str, prefix: str, suffix: str, get: Callable, legacy=''):
         if arg.startswith(prefix) and arg.endswith(suffix):
             entity_id = arg[len(prefix):-len(suffix)]
-            if legacy:
-                if entity_id.startswith(legacy):
-                    entity_id = entity_id[1:]
+            if legacy and entity_id.startswith(legacy):
+                entity_id = entity_id[1:]
             if entity_id.isdigit():
                 entity = get(int(entity_id))
                 if entity:
