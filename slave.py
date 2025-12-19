@@ -79,7 +79,7 @@ class Slave(commands.Cog):
         self._score[member.id] = [len(self._score), self._level[0], 0, 0]
         # Update database
         with open(FILE_SCORE, 'a') as f:
-            f.write(f"\n{member.id:<20},{self._level[0]:<20},0000000000000,0000000000000")
+            f.write(f"{member.id:<20},{self._level[0]:<20},0000000000000,0000000000000\n")
         # Welcome new member
         embed = Embed(title=f"Outsider Identified",
             description=f"{member.mention}\nName: {member.name}\nAlias: {member.display_name}",
@@ -87,6 +87,27 @@ class Slave(commands.Cog):
         embed.set_image(url=member.display_avatar.url)
         await member.guild.system_channel.send(embed=embed)
         return None
+
+    @commands.Cog.listener()
+    async def on_member_remove(self, member: Member) -> None:
+        items_removed = set()
+        for role in member.roles:
+            if role.id in self._items:
+                items_removed.add(role)
+        if items_removed:
+            admin = member.guild.get_member(ADMIN_USER_ID)
+            for item in items_removed:
+                await admin.add_roles(item)
+                self._score[admin.id][3] += self._items[item.id]
+            await self._level_up(admin, member.guild.system_channel)
+        # Delete member from database
+        del self._score[member.id]
+        with open(FILE_SCORE, 'w') as f:
+            for i, member_id, member_ref in enumerate(self._score.items()):
+                self._score[member_id][0] = i
+                f.write(f"{member_id:<20},{member_ref[1]:<20},{member_ref[2]:0>13},{member_ref[3]:0>13}\n")
+        return None
+
 
     @commands.Cog.listener()
     async def on_message(self, message: Message) -> None:
@@ -103,7 +124,7 @@ class Slave(commands.Cog):
 
     @commands.group(invoke_without_command=True)
     async def slave(self, context: Context) -> None:
-        if self._is_master(context):
+        if self._is_master_user(context):
             await context.send(f"You're amazing, {context.author.display_name}.")
         else:
             await context.send(f"Hi, {context.author.display_name}.")
@@ -301,18 +322,12 @@ class Slave(commands.Cog):
 
     @slave.group(invoke_without_command=True)
     async def master(self, context: Context) -> None:
-        pass
-
-    @master.before_invoke
-    async def master_gate(self, context: Context) -> None:
-        "Blocks non-administrative users."
-        if self._is_master(context):
-            return None
-        await context.send(f"You are not my master: {context.author.display_name}.")
-        raise commands.CheckFailure(f"User {context.author.display_name} is not master.")
+        await self._is_master(context)
+        return None
 
     @master.command()
     async def create(self, context: Context, member: Member, item: Role) -> None:
+        await self._is_master(context)
         if item.id in self._items:
             # Mint new item
             copy_item = await self._create_role(context.channel, item.name, item.position, item.color)
@@ -347,6 +362,7 @@ class Slave(commands.Cog):
 
     @master.command()
     async def delete(self, context: Context, entity: str, color_role: Role) -> None:
+        await self._is_master(context)
         if entity == 'color':
             if color_role.id in self._colors:
                 await color_role.delete()
@@ -360,8 +376,9 @@ class Slave(commands.Cog):
     @master.command()
     async def erase(self, context: Context, target_id: MemberOrStr = '') -> None:
         def yes_from_master(context: Context, message: Message) -> bool:
-            return self._is_master(context) and (message.channel == context.channel) and (message.content.lower().strip() == 'yes')
+            return self._is_master_user(context) and (message.channel == context.channel) and (message.content.lower().strip() == 'yes')
 
+        await self._is_master(context)
         if target_id:
             if isinstance(target_id, Member):
                 target_id = target_id.id
@@ -423,6 +440,7 @@ class Slave(commands.Cog):
 
     @master.command()
     async def imprison(self, context: Context, member: MemberOrStr = '', crime: Text = '', text: str = '') -> None:
+        await self._is_master(context)
         if isinstance(member, Member):
             # Collect valuable items from member
             items = set()
@@ -460,6 +478,7 @@ class Slave(commands.Cog):
 
     @master.command()
     async def liberate(self, context: Context, member: MemberOrStr = str, text: str = '') -> None:
+        await self._is_master(context)
         outsider = context.guild.get_role(OUTSIDER_ROLE_ID)
         prisoner = context.guild.get_role(PRISONER_ROLE_ID)
         if isinstance(member, Member):
@@ -517,6 +536,16 @@ class Slave(commands.Cog):
             return 0
         return int(x)
 
+    async def _is_master(self, context: Context) -> None:
+        if self._is_master_user(context):
+            return None
+        await context.send(f"You are not my master: {context.author.display_name}.")
+        raise commands.CheckFailure(f"User {context.author.display_name} is not master.")
+
+    @staticmethod
+    def _is_master_user(context: Context) -> bool:
+        return (context.author.id == ADMIN_USER_ID) or any(role.id == ADMIN_ROLE_ID for role in context.author.roles)
+
     async def _send_report(self, color: Color, context: Context, convict: bool, crime: Text, member: Member, title: str, text: str) -> None:
         # Massage input
         msg_embed = []
@@ -563,10 +592,6 @@ class Slave(commands.Cog):
             embed.set_image(url=message.attachments[0].url)
         embed.set_footer(text=f"Forwarded by {context.author.mention}", icon_url=context.author.display_avatar.url)
         return embed
-
-    @staticmethod
-    def _is_master(context: Context) -> bool:
-        return (context.author.id == ADMIN_USER_ID) or any(role.id == ADMIN_ROLE_ID for role in context.author.roles)
 
     async def _level_up(self, member: Member, channel: TextChannel) -> None:
         level_role = member.get_role(self._score[member.id][1])
