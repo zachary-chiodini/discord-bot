@@ -68,7 +68,7 @@ class Slave(commands.Cog):
         with open(FILE_ITEMS) as f:
             for line in f.readlines():
                 role_id, points = line.split(',')
-                self._items[int(role_id)] = points
+                self._items[int(role_id)] = int(points)
 
     @commands.Cog.listener()
     async def on_member_join(self, member: Member) -> None:
