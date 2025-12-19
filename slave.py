@@ -19,8 +19,8 @@ ADMIN_ROLE_ID = 1440115659387310201
 
 FILE_COLOR = 'database/color.txt'
 FILE_ITEMS = 'database/items.txt'
-FILE_SCORE = 'database/score.txt'
 FILE_LEVEL = 'database/level.txt'
+FILE_SCORE = 'database/score.txt'
 
 MAIN_ROLE_ID = 1430634515193139220
 OUTSIDER_ROLE_ID = 1435574700863393825
