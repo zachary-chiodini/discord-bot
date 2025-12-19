@@ -106,6 +106,12 @@ class Slave(commands.Cog):
             for i, member_id, member_ref in enumerate(self._score.items()):
                 self._score[member_id][0] = i
                 f.write(f"{member_id:<20},{member_ref[1]:<20},{member_ref[2]:0>13},{member_ref[3]:0>13}\n")
+        # Notify guild
+        embed = Embed(title=f"Someone Left",
+            description=f"{member.mention}\nName: {member.name}\nAlias: {member.display_name}",
+            color=Color.red())
+        embed.set_image(url=member.display_avatar.url)
+        await member.guild.system_channel.send(embed=embed)
         return None
 
 
