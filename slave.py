@@ -18,10 +18,10 @@ from converter import Mention, MemberOrStr, RoleOrStr, Text
 ADMIN_USER_ID = 1380323054479085648
 ADMIN_ROLE_ID = 1440115659387310201
 
-FILE_COLOR = 'color.txt'
-FILE_ITEMS = 'items.txt'
-FILE_SCORE = 'score.txt'
-FILE_LEVEL = 'level.txt'
+FILE_COLOR = 'database/color.txt'
+FILE_ITEMS = 'database/items.txt'
+FILE_SCORE = 'database/score.txt'
+FILE_LEVEL = 'database/level.txt'
 
 MAIN_ROLE_ID = 1430634515193139220
 OUTSIDER_ROLE_ID = 1435574700863393825
@@ -621,6 +621,6 @@ if __name__ == "__main__":
     async def on_ready():
         await bot.add_cog(Slave(bot))
 
-    with open('token.txt') as token_file:
+    with open('database/token.txt') as token_file:
         token_raw = token_file.read()
     bot.run(token_raw)
