@@ -17,10 +17,10 @@ from converter import Mention, MemberOrStr, RoleOrStr, Text
 ADMIN_USER_ID = 1380323054479085648
 ADMIN_ROLE_ID = 1440115659387310201
 
-FILE_COLOR = 'database/color.txt'
-FILE_ITEMS = 'database/items.txt'
-FILE_LEVEL = 'database/level.txt'
-FILE_SCORE = 'database/score.txt'
+FILE_COLOR = 'database/text_file/color.txt'
+FILE_ITEMS = 'database/text_file/items.txt'
+FILE_LEVEL = 'database/text_file/level.txt'
+FILE_SCORE = 'database/text_file/score.txt'
 
 MAIN_ROLE_ID = 1430634515193139220
 OUTSIDER_ROLE_ID = 1435574700863393825
