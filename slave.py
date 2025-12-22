@@ -467,7 +467,8 @@ class Slave(commands.Cog):
             await self._level_up(member, context.channel)
             # Strip and change member roles
             await member.remove_roles(*[role for role in member.roles if role != member.guild.default_role])
-            await member.add_roles([PRISONER_ROLE_ID, PERM_POST_ROLE_ID, context.guild.get_role(self._score[member.id][1])])
+            level_role = await context.guild.get_role(self._level[0])
+            await member.add_roles([PRISONER_ROLE_ID, PERM_POST_ROLE_ID, level_role])
             await self._send_report(
                 context.guild.get_role(PRISONER_ROLE_ID).color, context, True, crime, member,
                 f"Criminal {member.id} Identified", text)
