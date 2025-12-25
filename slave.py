@@ -554,6 +554,31 @@ class Slave(commands.Cog):
             f"""Include an optional message:\n{self._color_code_message('slave', 'master liberate', '@Member ', '"Confessed to their sin."')}""")
         return None
 
+    @master.command()
+    async def mute(self, context: Context, member: Member) -> None:
+        await self._is_master(context)
+        post_perm_role = context.guild.get_role(PERM_POST_ROLE_ID)
+        if member.get_role(PERM_POST_ROLE_ID):
+            await member.remove_roles(post_perm_role)
+            text1 = f"🤐 Muted!"
+            text2 = 'Removed'
+        else:
+            await member.add_roles(post_perm_role)
+            text1 = f"🔊 Unmuted!"
+            text2 = 'Recieved'
+        color = None
+        for role in member.roles:
+            if role.id in self._colors:
+                color = role
+                break
+        if not color:
+            color = context.guild.get_role(self._score[member.id][1])
+        embed = Embed(title=text1, description=f"{member.mention} {text2} {post_perm_role.mention}.", color=color.color)
+        embed.set_author(name=context.author.display_name, icon_url=context.author.display_avatar.url)
+        embed.set_thumbnail(url=member.display_avatar.url)
+        await context.guild.system_channel.send(embed=embed)
+        return None
+
     def _calc_level(self, member: Member) -> int:
         score = self._score[member.id][3]
         A = 9910.10197
