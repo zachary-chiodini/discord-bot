@@ -610,8 +610,9 @@ class Slave(commands.Cog):
                 prefix = 'up'
                 # Create level roles if new level not found in level list.
                 if (len(self._level) - 1) < next_lvl_n:
-                    for i in range(next_lvl_n - curr_lvl_n):
-                        level = curr_lvl_n + i + 1
+                    level_len_freeze = len(self._level)
+                    for i in range(next_lvl_n - level_len_freeze + 1):
+                        level = level_len_freeze + i
                         index = member.guild.get_role(SEPARATOR_ROLE_ID).position
                         new_level_role = await self._create_role(channel, f"LVL {level}", index, Color.random())
                         self._level.append(new_level_role.id)
