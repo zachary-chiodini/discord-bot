@@ -331,7 +331,7 @@ class Slave(commands.Cog):
     @slave.command()
     async def stats(self, context: Context, member: Member) -> None:
         suffix_map = {'0': 'th', '1': 'th', '2': 'nd', '3': 'rd', '4': 'th', '5': 'th', '6': 'th', '7': 'th', '8': 'th', '9': 'th', 'first': 'st'}
-        color = None
+        color, prime = None, None
         coins, items = set(), set()
         for role in member.roles:
             if role.id in PERM_ITEMS:
@@ -340,13 +340,11 @@ class Slave(commands.Cog):
                 coins.add(role)
             elif role.id in self._colors:
                 color = role
+            elif role.id in PRIME_ROLES:
+                prime = role
         level = context.guild.get_role(self._score[member.id][1])
         if not color:
             color = level
-        embed = Embed(
-            title=f"Member Stats:",
-            description=f"Name: {member.name}\nNickname: {member.mention}",
-            color=color.color)
         place = 1
         for member_i in context.guild.members:
             if self._score[member_i.id][3] > self._score[member.id][3]:
@@ -356,18 +354,22 @@ class Slave(commands.Cog):
             suffix_key = 'first'
         else:
             suffix_key = suffix_key[-1]
-        for role_id in PRIME_ROLES:
-            if member.get_role(role_id):
-                prime = context.guild.get_role(role_id)
-                break
+        padding = len(member.display_name)
+        for role in [color, prime]:
+            if padding < len(role.name):
+                padding = len(role.name)
+        if padding > 32:
+            padding = 32
+        embed = Embed(
+            title=f"{place}{suffix_map[suffix_key]} Place!",
+            description=(f"**Alias**: {member.mention}\n"
+                         f"**Level**: {level.mention}\n"
+                         f"**State**: {prime.mention}\n"
+                         f"**Color**: {color.mention}\n"
+                         f"**Score**: {self._score[member.id][3]:0>13}\n"
+                         f"**Posts**: {self._score[member.id][2]:0>13}\n"),
+            color=color.color)
         embed.set_thumbnail(url=member.display_avatar.url)
-        embed.add_field(name="\u200b",
-            value=(f"**State**: {prime.mention} | "
-                   f"**Place**: {place}{suffix_map[suffix_key]} | "
-                   f"**Level**: {level.name.removeprefix('LVL ')} | "
-                   f"**Score**: {self._score[member.id][3]:0>4} | "
-                   f"**Posts**: {self._score[member.id][2]:0>4}"),
-            inline=False)
         embed.add_field(name='Items:', value=', '.join([role.mention for role in items]), inline=False)
         embed.add_field(name='Purse:', value=', '.join([role.mention for role in coins]), inline=False)
         await context.send(embed=embed)
@@ -554,12 +556,9 @@ class Slave(commands.Cog):
 
     def _calc_level(self, member: Member) -> int:
         score = self._score[member.id][3]
-        max_value = 10000.0
         A = 9910.10197
         a, b, c  = A / 9801, 0.89797, score - 1
         x = 1 + (sqrt(abs(b*b - 4*a*c)) - b) / (2*a)
-        if x >= max_value:
-            return 99
         return int(x)
 
     @staticmethod
