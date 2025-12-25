@@ -33,7 +33,9 @@ PERM_EMBED_ROLE_ID = 1449342831629172826
 PERM_MOG_ROLE_ID = 1439713022489923730
 PERM_POST_ROLE_ID = 1437459436829409440
 PERM_REACT_ROLE_ID = 1436878137647562754
-PERM_ITEMS = [PERM_EMBED_ROLE_ID, PERM_MOG_ROLE_ID, PERM_POST_ROLE_ID, PERM_REACT_ROLE_ID]
+PERM_ITEMS = {PERM_EMBED_ROLE_ID, PERM_MOG_ROLE_ID, PERM_POST_ROLE_ID, PERM_REACT_ROLE_ID}
+
+PRIME_ROLES = {MAIN_ROLE_ID, OUTSIDER_ROLE_ID, PRISONER_ROLE_ID}
 
 PRISON_VISITATION_ID = 1397259367224442962
 PURSE_CHANNEL_ID = 1449214693091840131
@@ -326,6 +328,51 @@ class Slave(commands.Cog):
                 f"""Create a new Color:\n{self._color_code_message('slave', 'paint', '"Color Name" ', '#RRGGBB')}\n""")
         return None
 
+    @slave.command()
+    async def stats(self, context: Context, member: Member) -> None:
+        suffix_map = {'0': 'th', '1': 'th', '2': 'nd', '3': 'rd', '4': 'th', '5': 'th', '6': 'th', '7': 'th', '8': 'th', '9': 'th', 'first': 'st'}
+        color = None
+        coins, items = set(), set()
+        for role in member.roles:
+            if role.id in PERM_ITEMS:
+                items.add(role)
+            elif role.id in self._items:
+                coins.add(role)
+            elif role.id in self._colors:
+                color = role
+        level = context.guild.get_role(self._score[member.id][1])
+        if not color:
+            color = level
+        embed = Embed(
+            title=f"Member Stats:",
+            description=f"Name: {member.name}\nNickname: {member.mention}",
+            color=color.color)
+        place = 1
+        for member_i in context.guild.members:
+            if self._score[member_i.id][3] > self._score[member.id][3]:
+                place += 1
+        suffix_key = str(place)
+        if ((suffix_key[-1] == '1') and (len(suffix_key) > 2)) or (place == 1):
+            suffix_key = 'first'
+        else:
+            suffix_key = suffix_key[-1]
+        for role_id in PRIME_ROLES:
+            if member.get_role(role_id):
+                prime = context.guild.get_role(role_id)
+                break
+        embed.set_thumbnail(url=member.display_avatar.url)
+        embed.add_field(name="\u200b",
+            value=(f"**State**: {prime.mention} | "
+                   f"**Place**: {place}{suffix_map[suffix_key]} | "
+                   f"**Level**: {level.name.removeprefix('LVL ')} | "
+                   f"**Score**: {self._score[member.id][3]:0>4} | "
+                   f"**Posts**: {self._score[member.id][2]:0>4}"),
+            inline=False)
+        embed.add_field(name='Items:', value=', '.join([role.mention for role in items]), inline=False)
+        embed.add_field(name='Purse:', value=', '.join([role.mention for role in coins]), inline=False)
+        await context.send(embed=embed)
+        return None
+
     @slave.group(invoke_without_command=True)
     async def master(self, context: Context) -> None:
         await self._is_master(context)
@@ -505,6 +552,16 @@ class Slave(commands.Cog):
             f"""Include an optional message:\n{self._color_code_message('slave', 'master liberate', '@Member ', '"Confessed to their sin."')}""")
         return None
 
+    def _calc_level(self, member: Member) -> int:
+        score = self._score[member.id][3]
+        max_value = 10000.0
+        A = 9910.10197
+        a, b, c  = A / 9801, 0.89797, score - 1
+        x = 1 + (sqrt(abs(b*b - 4*a*c)) - b) / (2*a)
+        if x >= max_value:
+            return 99
+        return int(x)
+
     @staticmethod
     def _color_code_message(red_text: str, white_text: str, blue_text: str = '', green_text: str = '', orange_text: str = '') -> str:
         red_text = f"\u001b[31m!{red_text}\u001b[0m"
@@ -531,16 +588,6 @@ class Slave(commands.Cog):
         new_role = await channel.guild.create_role(name=name, color=color)
         await channel.guild.edit_role_positions(positions={new_role: position})
         return new_role
-
-    def _calc_level(self, member: Member) -> int:
-        score = self._score[member.id][3]
-        max_value = 10000.0
-        A = 9910.10197
-        a, b, c  = A / 9801, 0.89797, score - 1
-        x = 1 + (sqrt(abs(b*b - 4*a*c)) - b) / (2*a)
-        if x >= max_value:
-            return 0
-        return int(x)
 
     async def _is_master(self, context: Context) -> None:
         if self._is_master_user(context):
