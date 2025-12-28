@@ -163,44 +163,57 @@ class Slave(commands.Cog):
         return None
 
     @slave.command()
-    async def gift(self, context: Context, member: MemberOrStr, item: RoleOrStr) -> None:
-        if isinstance(member, Member) and isinstance(item, Role):
-            # Make sure item is giftable
-            if item.id in self._items:
-                container = self._items
-                points = self._items[item.id]
-            elif item.id in self.PERM_ITEMS:
-                if member.get_role(item.id):
-                    await context.send(f"{member.mention} already has a {item.mention}.")
+    async def gift(self, context: Context, member: MemberOrStr, item: RoleOrInt) -> None:
+        if isinstance(member, Member):
+            if isinstance(item, Role):
+                # Make sure item is giftable
+                if item.id in self._items:
+                    container = self._items
+                    points = self._items[item.id]
+                elif item.id in self.PERM_ITEMS:
+                    if member.get_role(item.id):
+                        await context.send(f"{member.mention} already has a {item.mention}.")
+                        return None
+                    container = [item.id]
+                    points = 0
+                else:
+                    await context.send(f"{item.mention} is not a giftable item.")
                     return None
-                container = [item.id]
-                points = 0
+                # Make sure author has item
+                author_items = set()
+                for role in context.author.roles:
+                    if role.id in container:
+                        author_items.add(role)
+                        break
+                if not author_items:
+                    await context.send(f"{context.author.mention} does not have a {item.mention} to gift.")
+                elif context.author.id == member.id:
+                    await context.send(f"You cannot gift yourself {item.mention}.")
+                else:
+                    # Gift member item
+                    gift = author_items.pop()
+                    await context.author.remove_roles(gift)
+                    await member.add_roles(gift)
+                    await context.send(f"{member.mention} recieved {gift.mention} from {context.author.mention}.")
+                    if points:
+                        await self._decrease_score(context.author, points)
+                        await self._increase_score(member, points)
+                    return None
             else:
-                await context.send(f"{item.mention} is not a giftable item.")
-                return None
-            # Make sure author has item
-            author_items = set()
-            for role in context.author.roles:
-                if role.id in container:
-                    author_items.add(role)
-                    break
-            if not author_items:
-                await context.send(f"{context.author.mention} does not have a {item.mention} to gift.")
-            elif context.author.id == member.id:
-                await context.send(f"You cannot gift yourself {item.mention}.")
-            else:
-                # Gift member item
-                gift = author_items.pop()
-                await context.author.remove_roles(gift)
-                await member.add_roles(gift)
-                await context.send(f"{member.mention} recieved {gift.mention} from {context.author.mention}.")
-                if points:
-                    self._decrease_score(context.author, points)
-                    self._increase_score(member, points)
+                if item < 0:
+                    await context.send(f"Cannot gift negative points.")
+                    return None
+                if self._get_score(context.author) < item:
+                    await context.send(f"{context.author.mention} does not have {item} points to give.")
+                    return None
+                await self._decrease_score(context.author, item)
+                await self._increase_score(member, item)
                 return None
         await context.send(
             f"Gift an item to another member:\n"
-            f"{self._color_code_message('slave', 'gift', '@Member', '@Item')}")
+            f"{self._color_code_message('slave', 'gift', '@Member', '@Item')}\n"
+            f"Gift points to another member:\n"
+            f"{self._color_code_message('slave', 'gift', '@Member', '250')}")
         return None
 
     @slave.command()
