@@ -48,6 +48,12 @@ class MemberOrStr(Overload):
             return member
         return arg
 
+class RoleOrInt(Overload):
+
+    async def convert(self, context: Context, arg: str) -> Union[Role, int]:
+        if arg.isdigit():
+            return int(arg)
+        return self._cast_role(context, arg)
 
 class RoleOrStr(Overload):
 

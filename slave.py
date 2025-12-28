@@ -13,7 +13,7 @@ from discord.ext import commands
 from discord.ext.commands import Context
 from PIL import Image
 
-from converter import Mention, MemberOrStr, RoleOrStr, Text
+from converter import Mention, MemberOrStr, RoleOrInt, RoleOrStr, Text
 
 
 class Slave(commands.Cog):
@@ -320,6 +320,87 @@ class Slave(commands.Cog):
                 f"{self._color_code_message('slave', 'paint', '@Color ', '@Color ', '...')}\n"
                 'Create a new Color:\n'
                 f"""{self._color_code_message('slave', 'paint', '"Color Name" ', '#RRGGBB')}\n""")
+        return None
+
+    @slave.command()
+    async def roll(self, context: Context, bet: RoleOrInt = 0, bet_type: str = 'pass line') -> None:
+        def roll_from_respondent(context: Context, message: Message) -> bool:
+            if ((message.author.id == context.author.id) and (message.channel == context.channel) 
+                    and (message.content.lower().strip() == 'roll')):
+                return True
+            return False
+
+        async def winner() -> None:
+            await context.send(f"{context.author.mention} Won!")
+            if bet_role:
+                await house.remove_roles(house_role)
+                await context.author.add_roles(house_role)
+            if bet:
+                self._increase_score(context.author, bet)
+
+        async def loser() -> None:
+            await context.send(f"{context.author.mention} Lost!")
+            if bet_role:
+                await house.add_roles(author_role)
+                await context.author.remove_roles(author_role)
+            if bet:
+                self._decrease_score(context.author, bet)
+    
+        # Input massage
+        if bet and isinstance(bet, int):
+            if bet > self._get_score(context.author):
+                await context.send(f"{context.author.mention} does not have {bet} points to bet.")
+                return None
+            bet_role = None
+        elif isinstance(bet, Role):
+            gold_coin = context.guild.get_role(self.GOLD_COIN_ID)
+            if bet not in self._items:
+                await context.send(f"Bet points or {gold_coin.mention}, not {bet.mention}.")
+                return None
+            for author_role in context.author.roles:
+                if author_role.id in self._items:
+                    break
+            else:
+                await context.send(f"{context.author.mention} does not have a {gold_coin.mention} to bet.")
+                return None
+            house = context.guild.get_member(self.ADMIN_USER_ID)
+            for house_role in house.roles:
+                if house_role.id in self._items:
+                    break
+            else:
+                await context.send(f"House currently cannot payout a {gold_coin.mention}. More must be minted.")
+                return None
+            bet_role = bet
+            bet = self._items[bet_role.id]
+        else:
+            bet_role = None
+        dice_map = {}
+        # Come-out Roll
+        dice_1, dice_2 = randint(1, 6), randint(1, 6)
+        point = dice_1 + dice_2
+        if (point == 7) or (point == 11):
+            winner()
+        elif (point == 2) or (point == 3) or (point == 12):
+            loser()
+        # The Point Phase
+        await context.send(f"You rolled a {point}")
+        score = point
+        while True:
+            await context.send('Roll again by typing "roll."')
+            try:
+                await bot.wait_for('message', timeout=30, check=lambda m: roll_from_respondent(context, m))
+            except TimeoutError:
+                await context.send(f"Timeout: {context.author.mention} Lost!")
+                return None
+            dice_1, dice_2 = randint(1, 6), randint(1, 6)
+            score = dice_1 + dice_2
+            await context.send(f"You rolled a {score}")
+            if score == point:
+                winner()
+                break
+            elif score == 7:
+                loser()
+                break
         return None
 
     @slave.command()
