@@ -235,7 +235,7 @@ class Slave(commands.Cog):
             img = Image.new("RGB", (256, 256), ((color.value >> 16) & 0xFF, (color.value >> 8) & 0xFF, color.value & 0xFF))
             img.save(f"database/colors/{hexcode[1:].lower()}.png", format='PNG')
             await show_color(new_color, 'New Color Created')
-            await self._increase_score(context.author, 25)
+            await self._increase_score(context.author, 10)
             return None
 
         def mix_colors(*hexes: int) -> int:
