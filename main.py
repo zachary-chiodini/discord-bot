@@ -16,7 +16,7 @@ from convert import ElementRef, Mention, MemberOrStr, RoleOrInt, RoleOrStr, Text
 from utils import is_hexcode
 
 
-class Slave(commands.Cog):
+class Main(commands.Cog):
 
     ADMIN_USER_ID = 1380323054479085648
     ADMIN_ROLE_ID = 1440115659387310201
@@ -920,7 +920,7 @@ if __name__ == "__main__":
 
     @bot.event
     async def on_ready():
-        await bot.add_cog(Slave(bot))
+        await bot.add_cog(Main(bot))
 
     with open('database/text_file/token.txt') as token_file:
         token_raw = token_file.read()
