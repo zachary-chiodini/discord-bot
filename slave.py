@@ -428,7 +428,7 @@ class Slave(commands.Cog):
 
     @slave.command()
     async def stats(self, context: Context, member: Member) -> None:
-        self._show_stats(context.channel, member, 'Member Stats')
+        await self._show_stats(context.channel, member, 'Member Stats')
         return None
 
     @slave.group(invoke_without_command=True)
