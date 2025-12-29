@@ -4,7 +4,7 @@ from discord.ext.commands import Context, Converter
 from typing import Any, Callable, List, Union
 
 
-class IndexRef:
+class ElementRef:
     __slots__ = ('_array', '_index')
 
     def __init__(self, array: List, i: int):
