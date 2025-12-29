@@ -696,6 +696,14 @@ class Slave(commands.Cog):
         await context.send(f"You are not my master: {context.author.display_name}.")
         raise commands.CheckFailure(f"User {context.author.display_name} is not master.")
 
+    def _get_health(self, member: Member) -> int:
+        return self._score[member.id][2]
+
+    def _get_health_str(self, member: Member) -> str:
+        if self._get_health(member):
+            return self._get_health(member) * '❤️'
+        return '💀'
+
     def _get_level(self, member: Member) -> int:
         return self._score[member.id][1]
 
@@ -748,6 +756,7 @@ class Slave(commands.Cog):
         embed = Embed(title=title,
             description=(f"**Place**: {place}{suffix_map[suffix_key]}\n"
                          f"**Alias**: {member.mention}\n"
+                         f"**Vigor**: {self._get_health_str(member)}\n"
                          f"**Level**: {level.mention}\n"
                          f"**State**: {prime.mention}\n"
                          f"**Color**: {color.mention}\n"
@@ -813,7 +822,7 @@ class Slave(commands.Cog):
         return None
 
     async def _level_up(self, member: Member) -> None:
-        level_role = member.get_role(self._get_score(member))
+        level_role = member.get_role(self._get_level(member))
         curr_lvl_n = int(level_role.name.removeprefix('LVL '))
         next_lvl_n = self._calc_level(member)
         if next_lvl_n != curr_lvl_n:
