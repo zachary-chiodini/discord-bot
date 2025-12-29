@@ -437,6 +437,25 @@ class Main(commands.Cog):
         return None
 
     @slave.command()
+    async def shoot(self, context: Context, member: Member) -> None:
+        gun_role = context.guild.get_role(self.GUN_ID)
+        if not context.author.get_role(self.GUN_ID):
+            await context.send(f"{context.author.mention} is not carrying a {gun_role.mention}")
+            return None
+        if not self._get_health(member).value:
+            await context.send(f"{member.mention} has zero health.")
+            return None
+        self._decrease_health(member)
+        if not self._get_health(member).value:
+            self._clear_score(member)
+            self._remove_all_roles(member)
+            level_zero = member.guild.get_role(self._level[0])
+            post_perm = member.guild.get_role(self.PERM_POST_ID)
+            sick = member.guild.get_role(self.SICK_ID)
+            await member.add_roles(*[level_zero, post_perm, sick])
+        return None
+
+    @slave.command()
     async def stats(self, context: Context, member: Member) -> None:
         await self._show_stats(context.channel, member, 'Member Stats')
         return None
@@ -633,25 +652,6 @@ class Main(commands.Cog):
         embed.set_author(name=context.author.display_name, icon_url=context.author.display_avatar.url)
         embed.set_thumbnail(url=member.display_avatar.url)
         await context.guild.system_channel.send(embed=embed)
-        return None
-
-    master.command()
-    async def shoot(self, context: Context, member: Member) -> None:
-        gun_role = context.guild.get_role(self.GUN_ID)
-        if not context.author.get_role(self.GUN_ID):
-            await context.send(f"{context.author.mention} is not carrying a {gun_role.mention}")
-            return None
-        if not self._get_health(member).value:
-            await context.send(f"{member.mention} has zero health.")
-            return None
-        self._decrease_health(member)
-        if not self._get_health(member).value:
-            self._clear_score(member)
-            self._remove_all_roles(member)
-            level_zero = member.guild.get_role(self._level[0])
-            post_perm = member.guild.get_role(self.PERM_POST_ID)
-            sick = member.guild.get_role(self.SICK_ID)
-            await member.add_roles(*[level_zero, post_perm, sick])
         return None
 
     def _calc_level(self, member: Member) -> int:
