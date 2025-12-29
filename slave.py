@@ -31,7 +31,7 @@ class Slave(commands.Cog):
     OUTSIDER_ID = 1435574700863393825
     PRISONER_ID = 1430999416180965418
 
-    GOLD_COIN_ID = 1448979150948794378
+    GOLD_COIN_ID = 1451434653142749185
     SEPARATOR_ID = 1448156888066949277
 
     PERM_EMBED_ID = 1449342831629172826
@@ -187,8 +187,10 @@ class Slave(commands.Cog):
                         break
                 if not author_items:
                     await context.send(f"{context.author.mention} does not have a {item.mention} to gift.")
+                    return None
                 elif context.author.id == member.id:
                     await context.send(f"You cannot gift yourself {item.mention}.")
+                    return None
                 else:
                     # Gift member item
                     gift = author_items.pop()
@@ -211,9 +213,9 @@ class Slave(commands.Cog):
                 return None
         await context.send(
             f"Gift an item to another member:\n"
-            f"{self._color_code_message('slave', 'gift', '@Member', '@Item')}\n"
+            f"{self._color_code_message('slave', 'gift', '@Member ', '@Item')}\n"
             f"Gift points to another member:\n"
-            f"{self._color_code_message('slave', 'gift', '@Member', '250')}")
+            f"{self._color_code_message('slave', 'gift', '@Member ', '250')}")
         return None
 
     @slave.command()
@@ -343,22 +345,28 @@ class Slave(commands.Cog):
                 return True
             return False
 
-        async def winner() -> None:
-            await context.send(f"{context.author.mention} Won!")
+        async def winner(bet: int) -> None:
             if bet_role:
+                await context.send(f"{context.author.mention} Won {bet_role.mention}!")
                 await house.remove_roles(house_role)
                 await context.author.add_roles(house_role)
-            if bet:
-                self._increase_score(context.author, bet)
+                await self._increase_score(context.author, bet)
+            else:
+                await context.send(f"{context.author.mention} Won {bet} Points!")
+                await self._increase_score(context.author, bet)
+            return None
 
-        async def loser() -> None:
-            await context.send(f"{context.author.mention} Lost!")
+        async def loser(bet: int) -> None:
             if bet_role:
+                await context.send(f"{context.author.mention} Lost {bet_role.mention}!")
                 await house.add_roles(author_role)
                 await context.author.remove_roles(author_role)
-            if bet:
-                self._decrease_score(context.author, bet)
-    
+                await self._decrease_score(context.author, bet)
+            else:
+                await context.send(f"{context.author.mention} Lost {bet} Points!")
+                await self._decrease_score(context.author, bet)
+            return None
+
         # Input massage
         if bet and isinstance(bet, int):
             if bet > self._get_score(context.author):
@@ -367,7 +375,7 @@ class Slave(commands.Cog):
             bet_role = None
         elif isinstance(bet, Role):
             gold_coin = context.guild.get_role(self.GOLD_COIN_ID)
-            if bet not in self._items:
+            if bet.id not in self._items:
                 await context.send(f"Bet points or {gold_coin.mention}, not {bet.mention}.")
                 return None
             for author_role in context.author.roles:
@@ -391,12 +399,14 @@ class Slave(commands.Cog):
         # Come-out Roll
         dice_1, dice_2 = randint(1, 6), randint(1, 6)
         point = dice_1 + dice_2
+        await context.send(f"You rolled a {point}.")
         if (point == 7) or (point == 11):
-            winner()
+            await winner(bet)
+            return None
         elif (point == 2) or (point == 3) or (point == 12):
-            loser()
+            await loser(bet)
+            return None
         # The Point Phase
-        await context.send(f"You rolled a {point}")
         score = point
         while True:
             await context.send('Roll again by typing "roll."')
@@ -409,11 +419,11 @@ class Slave(commands.Cog):
             score = dice_1 + dice_2
             await context.send(f"You rolled a {score}")
             if score == point:
-                winner()
-                break
+                await winner(bet)
+                return None
             elif score == 7:
-                loser()
-                break
+                await loser(bet)
+                return None
         return None
 
     @slave.command()
@@ -668,7 +678,7 @@ class Slave(commands.Cog):
 
     async def _decrease_score(self, member: Member, points: int) -> None:
         self._score[member.id][3] -= points
-        await self._level_up(member, member.guild.system_channel)
+        await self._level_up(member)
         return None
 
     async def _is_master(self, context: Context) -> None:
@@ -799,10 +809,10 @@ class Slave(commands.Cog):
                     level_len_freeze = len(self._level)
                     for i in range(next_lvl_n - level_len_freeze + 1):
                         level = level_len_freeze + i
-                        index = member.guild.get_role(SEPARATOR_ID).position
+                        index = member.guild.get_role(self.SEPARATOR_ID).position
                         new_level_role = await self._create_role(f"LVL {level}", index, Color.random())
                         self._level.append(new_level_role.id)
-                        with open(FILE_LEVEL, 'a') as f:
+                        with open(self.FILE_LEVEL, 'a') as f:
                             f.write(f"\n{new_level_role.id}")
                 else:
                     new_level_role = member.guild.get_role(self._level[next_lvl_n])
