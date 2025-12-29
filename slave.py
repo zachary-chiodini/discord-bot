@@ -717,6 +717,8 @@ class Slave(commands.Cog):
                 color = role
             elif role.id in self.PRIME_ROLES:
                 prime = role
+        if not prime:
+            prime = member
         # Get level and place
         level = member.guild.get_role(self._score[member.id][1])
         if not color:
