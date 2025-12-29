@@ -3,7 +3,6 @@ from collections import OrderedDict
 from math import sqrt
 from os import path
 from random import randint
-from re import fullmatch
 from time import perf_counter
 
 from discord import (Color, Embed, File, Intents, Member, Message,
@@ -14,6 +13,7 @@ from pandas import DataFrame  # want to use this
 from PIL import Image
 
 from convert import ElementRef, Mention, MemberOrStr, RoleOrInt, RoleOrStr, Text
+from utils import is_hexcode
 
 
 class Slave(commands.Cog):
@@ -267,7 +267,7 @@ class Slave(commands.Cog):
                 if role.id in self._colors:
                     await show_color(role, 'Showing Color')
                     return None
-            elif fullmatch(r'#([0-9a-fA-F]{6})', role):
+            elif is_hexcode(role):
                 for role_id, hex_code in self._colors.items():
                     if role.lower() == hex_code.lower():
                         await show_color(context.guild.get_role(role_id), 'Color Found')
@@ -316,7 +316,7 @@ class Slave(commands.Cog):
             await context.send(f"Interpreted input {offender} as a @Color role.\nColor not found.")
         elif isinstance(member, str) and role and isinstance(role, str):
             # Create a new color role
-            if fullmatch(r'#([0-9a-fA-F]{6})', role):
+            if is_hexcode(role):
                 for role_id, color_hex in self._colors.items():
                     color_role = context.guild.get_role(role_id)
                     if (color_role.name == member.title()) or (role.lower() == color_hex.lower()):
