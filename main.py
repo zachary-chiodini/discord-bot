@@ -13,7 +13,7 @@ from discord.ext.commands import Context
 from pandas import DataFrame  # want to use this
 from PIL import Image
 
-from converter import ElementRef, Mention, MemberOrStr, RoleOrInt, RoleOrStr, Text
+from convert import ElementRef, Mention, MemberOrStr, RoleOrInt, RoleOrStr, Text
 
 
 class Slave(commands.Cog):
