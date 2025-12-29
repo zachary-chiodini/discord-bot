@@ -11,6 +11,7 @@ from discord import (Color, Embed, File, Intents, Member, Message,
                      PermissionOverwrite, Role, TextChannel)
 from discord.ext import commands
 from discord.ext.commands import Context
+from pandas import DataFrame  # want to use this
 from PIL import Image
 
 from converter import Mention, MemberOrStr, RoleOrInt, RoleOrStr, Text
@@ -60,8 +61,8 @@ class Slave(commands.Cog):
         # Load score database: Used to keep track of user levels and scores.
         with open(self.FILE_SCORE) as f:
             for i, line in enumerate(f.readlines()):
-                user_id, level_role_id, posts, score = line.split(',')
-                self._score[int(user_id)] = [i, int(level_role_id), int(posts), int(score)]
+                user_id, level_role_id, health, posts, score = line.split(',')
+                self._score[int(user_id)] = [i, int(level_role_id), int(health), int(posts), int(score)]
         # Load level role database: Used to dynamically create level roles.
         self._level = []
         with open(self.FILE_LEVEL) as f:
@@ -80,10 +81,10 @@ class Slave(commands.Cog):
         for role_id in [self.OUTSIDER_ID, self._level[0], self.PERM_POST_ID, self.PERM_REACT_ID]:
             await member.add_roles(member.guild.get_role(role_id))
         # Initialize score
-        self._score[member.id] = [len(self._score), self._level[0], 0, 0]
+        self._score[member.id] = [len(self._score), self._level[0], 1, 0, 0]
         # Update database
         with open(self.FILE_SCORE, 'a') as f:
-            f.write(f"{member.id:<20},{self._level[0]:<20},0000000000000,0000000000000\n")
+            f.write(self._format_score(member))
         # Welcome new member
         embed = Embed(title='Outsider Identified',
             description=f"Name: {member.name}\nAlias: {member.mention}",
@@ -99,9 +100,9 @@ class Slave(commands.Cog):
         # Delete member from database (rewrite)
         del self._score[member.id]
         with open(self.FILE_SCORE, 'w') as f:
-            for i, member_id, stats in enumerate(self._score.items()):
+            for i, member_id, member_ref in enumerate(self._score.items()):
                 self._score[member_id][0] = i
-                f.write(f"{member_id:<20},{stats[1]:<20},{stats[2]:0>13},{stats[3]:0>13}\n")
+                f.write(self._format_score(member))
         return None
 
     @commands.Cog.listener()
@@ -616,7 +617,7 @@ class Slave(commands.Cog):
                 color = role
                 break
         if not color:
-            color = context.guild.get_role(self._score[member.id][1])
+            color = context.guild.get_role(self._get_level(member))
         embed = Embed(title=text1, description=f"{member.mention} {text2} {post_perm_role.mention}.", color=color.color)
         embed.set_author(name=context.author.display_name, icon_url=context.author.display_avatar.url)
         embed.set_thumbnail(url=member.display_avatar.url)
@@ -625,7 +626,7 @@ class Slave(commands.Cog):
 
     def _calc_level(self, member: Member) -> int:
         MAX = 10000
-        score = self._score[member.id][3]
+        score = self._get_score(member)
         A = 9910.10197
         a, b, c  = A / 9801, 0.89797, score - 1
         x = 1 + (sqrt(abs(b*b - 4*a*c)) - b) / (2*a)
@@ -635,7 +636,7 @@ class Slave(commands.Cog):
 
     async def _clear_score(self, member: Member) -> None:
         member_ref = self._score[member.id]
-        self._score[member.id] = [member_ref[0], member_ref[1], 0, 0]
+        self._score[member.id] = [member_ref[0], member_ref[1], 1, 0, 0]
         await self._level_up(member)
         return None
 
@@ -680,15 +681,23 @@ class Slave(commands.Cog):
         return new_role
 
     async def _decrease_score(self, member: Member, points: int) -> None:
-        self._score[member.id][3] -= points
+        score_ref = self._get_score(member)
+        score_ref -= points
         await self._level_up(member)
         return None
+
+    def _format_score(self, member: Member) -> str:
+        score_ref = self._score[member.id]
+        return f"{member.id:<20},{score_ref[1]:<20},{score_ref[2]:0>2},{score_ref[3]:0>13},{score_ref[4]:0>13}\n"
 
     async def _is_master(self, context: Context) -> None:
         if self._is_master_user(context):
             return None
         await context.send(f"You are not my master: {context.author.display_name}.")
         raise commands.CheckFailure(f"User {context.author.display_name} is not master.")
+
+    def _get_level(self, member: Member) -> int:
+        return self._score[member.id][1]
 
     async def _get_message_embed(self, context: Context, message_id: int) -> Embed:
         message = await context.channel.fetch_message(message_id)
@@ -700,10 +709,10 @@ class Slave(commands.Cog):
         return embed
 
     def _get_posts(self, member: Member) -> int:
-        return self._score[member.id][2]
+        return self._score[member.id][3]
 
     def _get_score(self, member: Member) -> int:
-        return self._score[member.id][3]
+        return self._score[member.id][4]
 
     async def _show_stats(self, channel: TextChannel, member: Member, title: str) -> None:
         # Collect member items, color, and primary role
@@ -723,7 +732,7 @@ class Slave(commands.Cog):
         if not prime:
             prime = member
         # Get level and place
-        level = member.guild.get_role(self._score[member.id][1])
+        level = member.guild.get_role(self._get_score(member))
         if not color:
             color = level
         place = 1
@@ -743,7 +752,7 @@ class Slave(commands.Cog):
                          f"**State**: {prime.mention}\n"
                          f"**Color**: {color.mention}\n"
                          f"**Score**: {self._get_score(member):0>13}\n"
-                         f"**Posts**: {self._score[member.id][2]:0>13}"),
+                         f"**Posts**: {self._get_posts(member):0>13}"),
             color=color.color)
         embed.set_thumbnail(url=member.display_avatar.url)
         embed.add_field(name='Items:', value=', '.join([role.mention for role in items]), inline=False)
@@ -792,17 +801,19 @@ class Slave(commands.Cog):
         return None
 
     async def _increase_posts(self, member: Member, posts: int = 1) -> None:
-        self._score[member.id][2] += posts
+        posts_ref = self._get_posts(member)
+        posts_ref += posts
         await self._increase_score(member, posts)
         return None
 
     async def _increase_score(self, member: Member, points: int) -> None:
-        self._score[member.id][3] += points
+        score_ref = self._get_posts(member)
+        score_ref += points
         await self._level_up(member)
         return None
 
     async def _level_up(self, member: Member) -> None:
-        level_role = member.get_role(self._score[member.id][1])
+        level_role = member.get_role(self._get_score(member))
         curr_lvl_n = int(level_role.name.removeprefix('LVL '))
         next_lvl_n = self._calc_level(member)
         if next_lvl_n != curr_lvl_n:
@@ -826,7 +837,8 @@ class Slave(commands.Cog):
                 prefix = 'down'
                 new_level_role = member.guild.get_role(self._level[next_lvl_n])
             # Update level
-            self._score[member.id][1] = new_level_role.id
+            level_ref = self._get_level(member)
+            level_ref = new_level_role.id
             await member.remove_roles(level_role)
             await member.add_roles(new_level_role)
             if not member.get_role(self.PRISONER_ID):
@@ -843,8 +855,8 @@ class Slave(commands.Cog):
         # Update database
         member_ref = self._score[member.id]
         with open(self.FILE_SCORE, 'r+') as f:
-            f.seek((member_ref[0] * 70))
-            f.write(f"{member.id:<20},{member_ref[1]:<20},{member_ref[2]:0>13},{member_ref[3]:0>13}\n")
+            f.seek((member_ref[0] * 73))
+            f.write(self._format_score(member))
         return None
 
 
