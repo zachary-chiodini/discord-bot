@@ -163,7 +163,7 @@ class Slave(commands.Cog):
         return None
 
     @slave.command()
-    async def gift(self, context: Context, member: MemberOrStr, item: RoleOrInt) -> None:
+    async def gift(self, context: Context, member: MemberOrStr = '', item: RoleOrInt = 0) -> None:
         if isinstance(member, Member):
             if isinstance(item, Role):
                 # Make sure item is giftable
@@ -201,7 +201,7 @@ class Slave(commands.Cog):
                         await self._decrease_score(context.author, points)
                         await self._increase_score(member, points)
                     return None
-            else:
+            elif item:
                 if item < 0:
                     await context.send(f"Cannot gift negative points.")
                     return None
@@ -624,10 +624,13 @@ class Slave(commands.Cog):
         return None
 
     def _calc_level(self, member: Member) -> int:
+        MAX = 10000
         score = self._score[member.id][3]
         A = 9910.10197
         a, b, c  = A / 9801, 0.89797, score - 1
         x = 1 + (sqrt(abs(b*b - 4*a*c)) - b) / (2*a)
+        if x >= MAX:
+            return 99
         return int(x)
 
     async def _clear_score(self, member: Member) -> None:
