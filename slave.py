@@ -33,6 +33,7 @@ class Slave(commands.Cog):
     PRISONER_ID = 1430999416180965418
 
     GOLD_COIN_ID = 1451434653142749185
+    HEART_ID = 1455104794342457512
     SEPARATOR_ID = 1448156888066949277
 
     PERM_EMBED_ID = 1449342831629172826
@@ -81,7 +82,7 @@ class Slave(commands.Cog):
         for role_id in [self.OUTSIDER_ID, self._level[0], self.PERM_POST_ID, self.PERM_REACT_ID]:
             await member.add_roles(member.guild.get_role(role_id))
         # Initialize score
-        self._score[member.id] = [len(self._score), self._level[0], 1, 0, 0]
+        self._score[member.id] = [len(self._score), self._level[0], 0, 0, 0]
         # Update database
         with open(self.FILE_SCORE, 'a') as f:
             f.write(self._format_score(member))
@@ -625,13 +626,12 @@ class Slave(commands.Cog):
         return None
 
     def _calc_level(self, member: Member) -> int:
-        MAX = 10000
         score = self._get_score(member)
         A = 9910.10197
         a, b, c  = A / 9801, 0.89797, score - 1
         x = 1 + (sqrt(abs(b*b - 4*a*c)) - b) / (2*a)
-        if x >= MAX:
-            return 99
+        if x > 100:
+            return 100 
         return int(x)
 
     async def _clear_score(self, member: Member) -> None:
@@ -722,6 +722,54 @@ class Slave(commands.Cog):
     def _get_score(self, member: Member) -> int:
         return self._score[member.id][4]
 
+    async def _level_up(self, member: Member) -> None:
+        level_role = member.get_role(self._get_level(member))
+        curr_lvl_n = int(level_role.name.removeprefix('LVL '))
+        next_lvl_n = self._calc_level(member)
+        if next_lvl_n != curr_lvl_n:
+            if next_lvl_n > curr_lvl_n:
+                title = 'New Level Unlocked'
+                prefix = 'up'
+                # Create level roles if new level not found in level list.
+                if (len(self._level) - 1) < next_lvl_n:
+                    level_len_freeze = len(self._level)
+                    for i in range(next_lvl_n - level_len_freeze + 1):
+                        level = level_len_freeze + i
+                        index = member.guild.get_role(self.SEPARATOR_ID).position
+                        new_level_role = await self._create_role(f"LVL {level}", index, Color.random())
+                        self._level.append(new_level_role.id)
+                        with open(self.FILE_LEVEL, 'a') as f:
+                            f.write(f"\n{new_level_role.id}")
+                else:
+                    new_level_role = member.guild.get_role(self._level[next_lvl_n])
+            else:
+                title = 'Level Lost'
+                prefix = 'down'
+                new_level_role = member.guild.get_role(self._level[next_lvl_n])
+            # Update level
+            level_ref = self._get_level(member)
+            level_ref = new_level_role.id
+            await member.remove_roles(level_role)
+            await member.add_roles(new_level_role)
+            if not member.get_role(self.PRISONER_ID):
+                # Level up message
+                filename = f"{(next_lvl_n % 2) + 1}.png"
+                note = f"{member.mention} {prefix}graded from {level_role.mention} to {new_level_role.mention}"
+                await self._send_image_embed(member, title, note, filename, level_role.color)
+            # Raise health
+            if next_lvl_n % 10 == 0:
+                health_ref = self._get_health(member)
+                health_ref += 1
+                heart_role = member.guild.get_role(self.HEART_ID)
+                note = '+1 Health!', f"{member.mention} got +1 {heart_role.mention}"
+                await self._send_image_embed(member, note, 'heart.png', heart_role.color)
+        # Update database
+        member_ref = self._score[member.id]
+        with open(self.FILE_SCORE, 'r+') as f:
+            f.seek((member_ref[0] * 73))
+            f.write(self._format_score(member))
+        return None
+
     async def _show_stats(self, channel: TextChannel, member: Member, title: str) -> None:
         # Collect member items, color, and primary role
         suffix_map = {'0': 'th', '1': 'th', '2': 'nd', '3': 'rd', '4': 'th', '5': 'th',
@@ -740,7 +788,7 @@ class Slave(commands.Cog):
         if not prime:
             prime = member
         # Get level and place
-        level = member.guild.get_role(self._get_score(member))
+        level = member.guild.get_role(self._get_level(member))
         if not color:
             color = level
         place = 1
@@ -771,6 +819,15 @@ class Slave(commands.Cog):
 
     def _is_master_user(self, context: Context) -> bool:
         return (context.author.id == self.ADMIN_USER_ID) or any(role.id == self.ADMIN_ROLE_ID for role in context.author.roles)
+
+    async def _send_image_embed(self, author: Member, title: str, note: str, filename: str, color: Color) -> None:
+        embed = Embed(title=title, description=note, color=color)
+        file = File(f"database/images/{filename}", filename=filename)
+        embed.set_image(url=f"attachment://{filename}")
+        embed.set_author(name=author.display_name, icon_url=author.display_avatar.url)
+        guild = self.bot.get_guild(self.SERVER_ID)
+        await guild.system_channel.send(embed=embed, file=file)
+        return None
 
     async def _send_report(self, color: Color, context: Context, convict: bool, crime: Text, member: Member, title: str, text: str) -> None:
         # Massage input
@@ -819,53 +876,6 @@ class Slave(commands.Cog):
         score_ref = self._get_posts(member)
         score_ref += points
         await self._level_up(member)
-        return None
-
-    async def _level_up(self, member: Member) -> None:
-        level_role = member.get_role(self._get_level(member))
-        curr_lvl_n = int(level_role.name.removeprefix('LVL '))
-        next_lvl_n = self._calc_level(member)
-        if next_lvl_n != curr_lvl_n:
-            if next_lvl_n > curr_lvl_n:
-                title = 'New Level Unlocked'
-                prefix = 'up'
-                # Create level roles if new level not found in level list.
-                if (len(self._level) - 1) < next_lvl_n:
-                    level_len_freeze = len(self._level)
-                    for i in range(next_lvl_n - level_len_freeze + 1):
-                        level = level_len_freeze + i
-                        index = member.guild.get_role(self.SEPARATOR_ID).position
-                        new_level_role = await self._create_role(f"LVL {level}", index, Color.random())
-                        self._level.append(new_level_role.id)
-                        with open(self.FILE_LEVEL, 'a') as f:
-                            f.write(f"\n{new_level_role.id}")
-                else:
-                    new_level_role = member.guild.get_role(self._level[next_lvl_n])
-            else:
-                title = 'Level Lost'
-                prefix = 'down'
-                new_level_role = member.guild.get_role(self._level[next_lvl_n])
-            # Update level
-            level_ref = self._get_level(member)
-            level_ref = new_level_role.id
-            await member.remove_roles(level_role)
-            await member.add_roles(new_level_role)
-            if not member.get_role(self.PRISONER_ID):
-                # Level up message
-                filename = f"{(next_lvl_n % 2) + 1}.png"
-                embed = Embed(title=title,
-                    description=f"{member.mention} {prefix}graded from {level_role.mention} to {new_level_role.mention}",
-                    color=new_level_role.color)
-                file = File(f"database/images/{filename}", filename=filename)
-                embed.set_image(url=f"attachment://{filename}")
-                embed.set_author(name=member.display_name, icon_url=member.display_avatar.url)
-                guild = self.bot.get_guild(self.SERVER_ID)
-                await guild.system_channel.send(embed=embed, file=file)
-        # Update database
-        member_ref = self._score[member.id]
-        with open(self.FILE_SCORE, 'r+') as f:
-            f.seek((member_ref[0] * 73))
-            f.write(self._format_score(member))
         return None
 
 
