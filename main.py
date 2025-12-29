@@ -342,6 +342,12 @@ class Main(commands.Cog):
         return None
 
     @slave.command()
+    async def play(self, context: Context, game: str) -> None:
+        if game.lower().strip() == 'blackjack':
+            pass
+        return None
+
+    @slave.command()
     async def roll(self, context: Context, bet: RoleOrInt = 0, bet_type: str = 'pass line') -> None:
         def roll_from_respondent(context: Context, message: Message) -> bool:
             if ((message.author.id == context.author.id) and (message.channel == context.channel) 
@@ -710,7 +716,10 @@ class Main(commands.Cog):
 
     async def _decrease_score(self, member: Member, points: int) -> None:
         score_ref = self._get_score(member)
-        score_ref.value -= points
+        if score_ref.value - points > 0:
+            score_ref.value -= points
+        else:
+            score_ref.value = 0
         await self._level_up(member)
         return None
 
