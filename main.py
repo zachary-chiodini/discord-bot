@@ -1,7 +1,5 @@
 from asyncio import TimeoutError
 from collections import OrderedDict
-from math import sqrt
-from os import path
 from random import randint
 from time import perf_counter
 
@@ -11,7 +9,7 @@ from discord.ext import commands
 from discord.ext.commands import Context
 from PIL import Image
 
-from convert import ElementRef, Mention, MemberOrStr, RoleOrInt, RoleOrStr, Text
+from convert import Mention, MemberOrStr, RoleOrInt, RoleOrStr, Text
 from game import Game
 import utils as ut
 
