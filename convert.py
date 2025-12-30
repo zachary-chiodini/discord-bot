@@ -1,24 +1,7 @@
 from discord import Member, Role, TextChannel
 from discord.ext.commands import Context, Converter
 
-from typing import Any, Callable, List, Union
-
-
-class ElementRef:
-    __slots__ = ('_array', '_index')
-
-    def __init__(self, array: List, i: int):
-        self._array = array
-        self._index = i
-
-    @property
-    def value(self) -> Any:
-        return self._array[self._index]
-
-    @value.setter
-    def value(self, value) -> None:
-        self._array[self._index] = value
-        return None
+from typing import Callable, Union
 
 
 class Overload(Converter):

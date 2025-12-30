@@ -5,27 +5,25 @@ from os import path
 from random import randint
 from time import perf_counter
 
-from discord import (Color, Embed, File, Intents, Member, Message,
+from discord import (Color, Embed, File, Intents, Interaction, Member, Message,
                      PermissionOverwrite, Role, TextChannel)
 from discord.ext import commands
 from discord.ext.commands import Context
-from pandas import DataFrame  # want to use this
 from PIL import Image
 
 from convert import ElementRef, Mention, MemberOrStr, RoleOrInt, RoleOrStr, Text
-from utils import is_hexcode
+from game import Game
+import utils as ut
 
 
-class Main(commands.Cog):
+class MyCog(commands.Cog):
+    FILE_COLOR = 'database/text_file/color.txt'
+    FILE_LEVEL = 'database/text_file/level.txt'
+    FILE_ITEMS = 'database/text_file/items.txt'
 
     ADMIN_USER_ID = 1380323054479085648
     ADMIN_ROLE_ID = 1440115659387310201
     SERVER_ID = 1386754069640646787
-
-    FILE_COLOR = 'database/text_file/color.txt'
-    FILE_ITEMS = 'database/text_file/items.txt'
-    FILE_LEVEL = 'database/text_file/level.txt'
-    FILE_SCORE = 'database/text_file/score.txt'
 
     MAIN_ID = 1430634515193139220
     OUTSIDER_ID = 1435574700863393825
@@ -53,44 +51,34 @@ class Main(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.game = Game()
         self._colors = {}
-        # Load colors database: Used to dynamically create color roles.
+        # Used to dynamically create color roles.
         with open(self.FILE_COLOR) as f:
             for line in f.readlines():
                 role_id, hex_code = line.split(',')
                 self._colors[int(role_id)] = hex_code.strip()
-        # Load item database: Used to dynamically create item roles.
+        # Used to dynamically create item roles.
         self._items = {}
         with open(self.FILE_ITEMS) as f:
             for line in f.readlines():
                 role_id, points = line.split(',')
                 self._items[int(role_id)] = int(points)
-        # Load level role database: Used to dynamically create level roles.
+        # Used to dynamically create level roles.
         self._level = []
         with open(self.FILE_LEVEL) as f:
             for role_id in f.readlines():
                 self._level.append(int(role_id))
-        self._score = {}
-        # Load score database: Used to keep track of user levels and scores.
-        with open(self.FILE_SCORE) as f:
-            for i, line in enumerate(f.readlines()):
-                user_id, level_role_id1, level_role_id2, health, posts, score = line.split(',')
-                self._score[int(user_id)] = [i, int(level_role_id1), int(level_role_id2), int(health), int(posts), int(score)]
 
     @commands.Cog.listener()
     async def on_member_join(self, member: Member) -> None:
-        # Assign new member roles
-        for role_id in [self.OUTSIDER_ID, self._level[0], self.PERM_POST_ID, self.PERM_REACT_ID]:
-            await member.add_roles(member.guild.get_role(role_id))
-        # Initialize score
-        self._score[member.id] = [len(self._score), self._level[0], self._level[0], 0, 0, 0]
-        # Update database
-        with open(self.FILE_SCORE, 'a') as f:
-            f.write(self._format_score(member.id))
-        # Welcome new member
+        self.game.create_player(member.id)
+        level_role = self.get_level_role(0)
+        await ut.add_ids_to(member,
+            level_role.id, self.OUTSIDER_ID, self.PERM_POST_ID, self.PERM_REACT_ID)
         embed = Embed(title='Outsider Identified',
             description=f"Name: {member.name}\nAlias: {member.mention}",
-            color=member.guild.get_role(self._level[0]).color)
+            color=level_role.color)
         embed.set_image(url=member.display_avatar.url)
         await member.guild.system_channel.send(embed=embed)
         return None
@@ -98,20 +86,16 @@ class Main(commands.Cog):
     @commands.Cog.listener()
     async def on_member_remove(self, member: Member) -> None:
         await self._collect_items(member.guild.get_member(self.ADMIN_USER_ID), member)
-        await self._show_stats(member.guild.system_channel, member, f"{member.name.title()} Left")
-        # Delete member from database (rewrite)
-        del self._score[member.id]
-        with open(self.FILE_SCORE, 'w') as f:
-            for i, member_id, member_ref in enumerate(self._score.items()):
-                self._score[member_id][0] = i
-                f.write(self._format_score(member_id))
+        await self._show_stats(member.guild.system_channel, member, f"{member.name.title()} Left!")
+        self.game.delete_player(member.id)
         return None
 
     @commands.Cog.listener()
     async def on_message(self, message: Message) -> None:
         if message.author.bot or message.content.startswith('!slave'):
             return None
-        await self._increase_posts(message.author)
+        self.game.get_player(message.author.id).increase_posts()
+        self._level_up(message.author)
         return None
 
     @commands.group(invoke_without_command=True)
@@ -147,7 +131,7 @@ class Main(commands.Cog):
                 return None
             await member.remove_roles(main)
             await member.add_roles(outsider)
-            title = f"Citizen {member.display_name} Was Exhiled"
+            title = f"Citizen {member.display_name} Was Exhiled!"
             await self._send_report(outsider.color, context, False, crime, member, title, text)
             return None
         await context.send(
@@ -268,7 +252,7 @@ class Main(commands.Cog):
                 if role.id in self._colors:
                     await show_color(role, 'Showing Color')
                     return None
-            elif is_hexcode(role):
+            elif ut.is_hexcode(role):
                 for role_id, hex_code in self._colors.items():
                     if role.lower() == hex_code.lower():
                         await show_color(context.guild.get_role(role_id), 'Color Found')
@@ -316,8 +300,8 @@ class Main(commands.Cog):
                     return None
             await context.send(f"Interpreted input {offender} as a @Color role.\nColor not found.")
         elif isinstance(member, str) and role and isinstance(role, str):
-            # Create a new color role
-            if is_hexcode(role):
+            # Crea$te a new color role
+            if ut.is_hexcode(role):
                 for role_id, color_hex in self._colors.items():
                     color_role = context.guild.get_role(role_id)
                     if (color_role.name == member.title()) or (role.lower() == color_hex.lower()):
@@ -379,7 +363,7 @@ class Main(commands.Cog):
 
         # Input massage
         if bet and isinstance(bet, int):
-            if bet > self._get_score(context.author).value:
+            if bet > self.game.get_player(context.author).score:
                 await context.send(f"{context.author.mention} does not have {bet} points to bet.")
                 return None
             bet_role = None
@@ -442,7 +426,7 @@ class Main(commands.Cog):
         if not context.author.get_role(self.GUN_ID):
             await context.send(f"{context.author.mention} is not carrying a {gun_role.mention}.")
             return None
-        if not self._get_health(member).value:
+        if not self.game.get_player(member).health:
             await context.send(f"{member.mention} has zero health.")
             return None
         await self._decrease_health(member)
@@ -577,16 +561,14 @@ class Main(commands.Cog):
     @master.command()
     async def imprison(self, context: Context, member: MemberOrStr = '', crime: Text = '', text: str = '') -> None:
         await self._is_master(context)
-        if isinstance(member, Member):  
-            self._collect_items(context.author, member)
-            await self._clear_score(member)
+        if isinstance(member, Member):
             # Strip and change member roles
+            await self._collect_items(context.author, member)
             await self._remove_all_roles(member)
-            level_zero = context.guild.get_role(self._level[0])
             post_perm = context.guild.get_role(self.PERM_POST_ID)
             prisoner = context.guild.get_role(self.PRISONER_ID)
-            await member.add_roles(*[level_zero, post_perm, prisoner])
-            color = await context.guild.get_role(self.PRISONER_ID).color
+            await member.add_roles(*[post_perm, prisoner])
+            color = context.guild.get_role(self.PRISONER_ID).color
             await self._send_report(color, context, True, crime, member, 'Criminal Identified', text)
             return None
         await context.send(
@@ -605,15 +587,18 @@ class Main(commands.Cog):
         outsider = context.guild.get_role(self.OUTSIDER_ID)
         prisoner = context.guild.get_role(self.PRISONER_ID)
         if isinstance(member, Member):
-            role = member.get_role(self.OUTSIDER_ID)
-            if not role:
-                role = member.get_role(self.PRISON_VISITATION_ID)
-                if not role:
-                    await context.send(f"{member.mention} must be a {outsider.mention} or {prisoner.mention}.")
-                    return None
-            await self._send_report(
-                context.guild.get_role(self.MAIN_ID).color, context, False, text,
-                f"{role.name.title()} Has Been Liberated", '')
+            for role_id in [self.OUTSIDER_ID, self.PRISONER_ID]:
+                role = member.get_role(role_id)
+                if role:
+                    break
+            else:
+                await context.send(f"{member.mention} must be a {outsider.mention} or {prisoner.mention}.")
+                return None
+            await member.remove_roles(role)
+            main_role = context.guild.get_role(self.MAIN_ID)
+            await member.add_roles(main_role)
+            title = f"{role.name.title()} Has Been Liberated!"
+            await self._send_report(main_role.color, context, False, text, member, title, '')
             return None
         await context.send(
             f"Liberate an {outsider.mention} or a {prisoner.mention}:\n"
@@ -635,31 +620,19 @@ class Main(commands.Cog):
             text1 = f"🔊 Unmuted!"
             text2 = 'Recieved'
         color = None
+        level = 0
         for role in member.roles:
             if role.id in self._colors:
                 color = role
-                break
+            elif role.id in self._level:
+                level = role
         if not color:
-            color = context.guild.get_role(self._get_level(member).value)
-        embed = Embed(title=text1, description=f"{member.mention} {text2} {post_perm_role.mention}.", color=color.color)
+            color = level
+        note = f"{member.mention} {text2} {post_perm_role.mention}."
+        embed = Embed(title=text1, description=note, color=color.color)
         embed.set_author(name=context.author.display_name, icon_url=context.author.display_avatar.url)
         embed.set_thumbnail(url=member.display_avatar.url)
         await context.guild.system_channel.send(embed=embed)
-        return None
-
-    def _calc_level(self, member: Member) -> int:
-        score = self._get_score(member).value
-        A = 9910.10197
-        a, b, c  = A / 9801, 0.89797, score - 1
-        x = 1 + (sqrt(abs(b*b - 4*a*c)) - b) / (2*a)
-        if x > 100:
-            return 100 
-        return int(x)
-
-    async def _clear_score(self, member: Member) -> None:
-        member_ref = self._score[member.id]
-        self._score[member.id] = [member_ref[0], member_ref[1], member_ref[2], 0, 0, 0]
-        await self._level_up(member)
         return None
 
     async def _collect_items(self, author: Member, member: Member) -> None:
@@ -703,59 +676,34 @@ class Main(commands.Cog):
         return new_role
 
     async def _decrease_health(self, member: Member) -> None:
-        health_ref = self._get_health(member)
-        health_ref.value -= 1
+        player = self.game.get_player(member.id)
+        player.decrease_health()
         heart_role = member.guild.get_role(self.HEART_ID)
-        if health_ref.value:
-            note = f"{member.mention} lost a {heart_role.mention}!\nTotal: {self._get_health_str}"
+        if player.health:
+            note = f"{member.mention} lost a {heart_role.mention}!\nTotal: {player.get_health_str()}"
             embed = Embed(title='Ouch!', description=note, color=heart_role.color)
             embed.set_image(url=member.display_avatar.url)
             await member.guild.system_channel.send(embed=embed)
         else:
-            self._clear_score(member)
+            player.clear_score()
             self._remove_all_roles(member)
             level_zero = member.guild.get_role(self._level[0])
             post_perm = member.guild.get_role(self.PERM_POST_ID)
             sick = member.guild.get_role(self.SICK_ID)
             await member.add_roles(*[level_zero, post_perm, sick])
-            level_at_heart = self._get_level_at_heart(member)
-            level_at_heart.value = self._level[0]
-            note = f"{member.mention} Died! {self._get_health_str}"
+            note = f"{member.mention} Died! {player.get_health_str()}"
             embed = Embed(title='Ouch!', description=note, color=heart_role.color)
             embed.set_image(url=member.display_avatar.url)
             await member.guild.system_channel.send(embed=embed)
         return None
 
     async def _decrease_score(self, member: Member, points: int) -> None:
-        score_ref = self._get_score(member)
-        if score_ref.value - points > 0:
-            score_ref.value -= points
-        else:
-            score_ref.value = 0
+        self.game.get_player(member.id).decrease_score(points)
         await self._level_up(member)
         return None
 
-    def _format_score(self, member_id: int) -> str:
-        score_ref = self._score[member_id]
-        return f"{member_id:<20},{score_ref[1]:<20},{score_ref[2]:<20},{score_ref[3]:0>2},{score_ref[4]:0>13},{score_ref[5]:0>13}\n"
-
-    async def _increase_health(self, member: Member) -> None:
-        health_ref = self._get_health(member)
-        health_ref.value += 1
-        heart_role = member.guild.get_role(self.HEART_ID)
-        note = f"{member.mention} got +1 {heart_role.mention}!\nTotal: {self._get_health_str}"
-        await self._send_image_embed(member, '+1 Health!', note, 'database/items/heart.png', heart_role.color)
-        return None
-
-    async def _increase_posts(self, member: Member, posts: int = 1) -> None:
-        posts_ref = self._get_posts(member)
-        posts_ref.value += posts
-        await self._increase_score(member, posts)
-        return None
-
     async def _increase_score(self, member: Member, points: int) -> None:
-        score_ref = self._get_score(member)
-        score_ref.value += points
+        self.game.get_player(member.id).increase_score(points)
         await self._level_up(member)
         return None
 
@@ -768,20 +716,6 @@ class Main(commands.Cog):
     def _is_master_user(self, context: Context) -> bool:
         return (context.author.id == self.ADMIN_USER_ID) or any(role.id == self.ADMIN_ROLE_ID for role in context.author.roles)
 
-    def _get_health(self, member: Member) -> ElementRef:
-        return ElementRef(self._score[member.id], 3)
-
-    def _get_health_str(self, member: Member) -> str:
-        if self._get_health(member).value:
-            return self._get_health(member).value * '❤️'
-        return '💀'
-
-    def _get_level(self, member: Member) -> ElementRef:
-        return ElementRef(self._score[member.id], 1)
-
-    def _get_level_at_heart(self, member: Member) -> ElementRef:
-        return ElementRef(self._score[member.id], 2)
-
     async def _get_message_embed(self, context: Context, message_id: int) -> Embed:
         message = await context.channel.fetch_message(message_id)
         embed = Embed(description=message.content, timestamp=message.created_at)
@@ -791,62 +725,47 @@ class Main(commands.Cog):
             embed.set_image(url=message.attachments[0].url)
         return embed
 
-    def _get_posts(self, member: Member) -> ElementRef:
-        return ElementRef(self._score[member.id], 4)
-
-    def _get_score(self, member: Member) -> ElementRef:
-        return ElementRef(self._score[member.id], 5)
+    def get_level_role(self, level: int) -> Role:
+        guild = self.bot.get_guild(self.SERVER_ID)
+        return guild.get_role(self._level[level])
 
     async def _level_up(self, member: Member) -> None:
-        def lvl_to_int(role: Role) -> int:
-            return int(role.name.removeprefix('LVL '))
-        level_role = member.get_role(self._get_level(member).value)
-        curr_lvl_n = lvl_to_int(level_role)
-        next_lvl_n = self._calc_level(member)
-        if next_lvl_n != curr_lvl_n:
-            if next_lvl_n > curr_lvl_n:
+        old = self.game.get_player(member.id)
+        new = old.copy()
+        level_up = new.level_up()
+        if level_up != -1:
+            new_role = self.get_level_role(new.level)
+            if level_up:
                 title = 'New Level Unlocked'
                 prefix = 'up'
                 # Create level roles if new level not found in level list.
-                if (len(self._level) - 1) < next_lvl_n:
-                    level_len_freeze = len(self._level)
-                    for i in range(next_lvl_n - level_len_freeze + 1):
-                        level = level_len_freeze + i
-                        index = member.guild.get_role(self.SEPARATOR_ID).position
-                        new_level_role = await self._create_role(f"LVL {level}", index, Color.random())
-                        self._level.append(new_level_role.id)
+                if (len(self._level) - 1) < new.level:
+                    index = member.guild.get_role(self.SEPARATOR_ID).position
+                    len_freeze = len(self._level)
+                    for i in range(new.level - len_freeze + 1):
+                        level = len_freeze + i
+                        new_role = await self._create_role(f"LVL {level}", index, Color.random())
+                        self._level.append(new_role.id)
                         with open(self.FILE_LEVEL, 'a') as f:
-                            f.write(f"\n{new_level_role.id}")
-                else:
-                    new_level_role = member.guild.get_role(self._level[next_lvl_n])
+                            f.write(f"\n{new_role.id}")
             else:
                 title = 'Level Lost'
                 prefix = 'down'
-                new_level_role = member.guild.get_role(self._level[next_lvl_n])
             # Update level
-            level_ref = self._get_level(member)
-            level_ref.value = new_level_role.id
-            await member.remove_roles(level_role)
-            await member.add_roles(new_level_role)
+            await member.remove_roles(old_role)
+            await member.add_roles(new_role)
             if not member.get_role(self.PRISONER_ID):
                 # Level up message
-                filepath = f"database/images/{(next_lvl_n % 2) + 1}.png"
-                note = f"{member.mention} {prefix}graded from {level_role.mention} to {new_level_role.mention}"
-                await self._send_image_embed(member, title, note, filepath, level_role.color)
-            # Raise health
-            level_at_heart = self._get_level_at_heart(member)
-            lvls_since_heart = (next_lvl_n - lvl_to_int(level_at_heart))
-            if (next_lvl_n == 1) & (lvl_to_int(level_at_heart) == 0):
-                # First level gets a heart.
-                await self._increase_health(member)
-            elif (lvls_since_heart > 0) and (lvls_since_heart == 10):
-                await self._increase_health(member)
-                level_at_heart.value = new_level_role.id
-        # Update database
-        member_ref = self._score[member.id]
-        with open(self.FILE_SCORE, 'r+') as f:
-            f.seek((member_ref[0] * 94))
-            f.write(self._format_score(member.id))
+                filepath = f"database/images/{(new.level % 2) + 1}.png"
+                old_role = self.get_level_role(old.level)
+                note = f"{member.mention} {prefix}graded from {old_role.mention} to {new_role.mention}"
+                await self._send_image_embed(member, title, note, filepath, new_role.color)
+            if old.health < new.health:
+                # +1 health message
+                heart_role = member.guild.get_role(self.HEART_ID)
+                note = f"{member.mention} got +1 {heart_role.mention}!\nTotal: {new.get_health_str()}"
+                await self._send_image_embed(
+                    member, '+1 Health!', note, 'database/items/heart.png', heart_role.color)
         return None
 
     async def _remove_all_roles(self, member: Member) -> None:
@@ -854,11 +773,8 @@ class Main(commands.Cog):
         return None
 
     async def _show_stats(self, channel: TextChannel, member: Member, title: str) -> None:
-        # Collect member items, color, and primary role
-        suffix_map = {'0': 'th', '1': 'th', '2': 'nd', '3': 'rd', '4': 'th', '5': 'th',
-                      '6': 'th', '7': 'th', '8': 'th', '9': 'th', 'first': 'st'}
-        color, prime = None, None
         coins, items = set(), set()
+        color, prime = None, None
         for role in member.roles:
             if role.id in self.PERM_ITEMS:
                 items.add(role)
@@ -868,31 +784,23 @@ class Main(commands.Cog):
                 color = role
             elif role.id in self.PRIME_ROLES:
                 prime = role
+            elif role.id in self._level:
+                level = role
         if not prime:
             prime = member
-        # Get level and place
-        level = member.guild.get_role(self._get_level(member).value)
         if not color:
             color = level
-        place = 1
-        for member_i in member.guild.members:
-            if self._get_score(member_i).value > self._get_score(member).value:
-                place += 1
-        suffix_key = str(place)
-        if (place == 1) or ((suffix_key[-1] == '1') and (len(suffix_key) > 2)):
-            suffix_key = 'first'
-        else:
-            suffix_key = suffix_key[-1]
-        # Show stats
+        player = self.game.get_player(member.id)
         embed = Embed(title=title,
-            description=(f"**Place**: {place}{suffix_map[suffix_key]}\n"
+            description=(f"**Place**: {self.game.get_place(member.id)}\n"
                          f"**Alias**: {member.mention}\n"
-                         f"**Vigor**: {self._get_health_str(member)}\n"
+                         f"**Vigor**: {player.get_health_str()}\n"
                          f"**Level**: {level.mention}\n"
                          f"**State**: {prime.mention}\n"
                          f"**Color**: {color.mention}\n"
-                         f"**Score**: {self._get_score(member).value:0>13}\n"
-                         f"**Posts**: {self._get_posts(member).value:0>13}"),
+                         f"**Posts**: {player.posts:0>13}\n"
+                         f"**React**: {player.reacts:0>13}\n"
+                         f"**Score**: {player.score:0>13}"),
             color=color.color)
         embed.set_thumbnail(url=member.display_avatar.url)
         embed.add_field(name='Items:', value=', '.join([role.mention for role in items]), inline=False)
@@ -953,7 +861,7 @@ if __name__ == "__main__":
 
     @bot.event
     async def on_ready():
-        await bot.add_cog(Main(bot))
+        await bot.add_cog(MyCog(bot))
 
     with open('database/text_file/token.txt') as token_file:
         token_raw = token_file.read()
