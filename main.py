@@ -74,8 +74,8 @@ class Main(commands.Cog):
         # Load score database: Used to keep track of user levels and scores.
         with open(self.FILE_SCORE) as f:
             for i, line in enumerate(f.readlines()):
-                user_id, level_role_id, health, posts, score = line.split(',')
-                self._score[int(user_id)] = [i, int(level_role_id), int(health), int(posts), int(score)]
+                user_id, level_role_id1, level_role_id2, health, posts, score = line.split(',')
+                self._score[int(user_id)] = [i, int(level_role_id1), int(level_role_id2), int(health), int(posts), int(score)]
 
     @commands.Cog.listener()
     async def on_member_join(self, member: Member) -> None:
@@ -83,10 +83,10 @@ class Main(commands.Cog):
         for role_id in [self.OUTSIDER_ID, self._level[0], self.PERM_POST_ID, self.PERM_REACT_ID]:
             await member.add_roles(member.guild.get_role(role_id))
         # Initialize score
-        self._score[member.id] = [len(self._score), self._level[0], 0, 0, 0]
+        self._score[member.id] = [len(self._score), self._level[0], self._level[0], 0, 0, 0]
         # Update database
         with open(self.FILE_SCORE, 'a') as f:
-            f.write(self._format_score(member))
+            f.write(self._format_score(member.id))
         # Welcome new member
         embed = Embed(title='Outsider Identified',
             description=f"Name: {member.name}\nAlias: {member.mention}",
@@ -104,7 +104,7 @@ class Main(commands.Cog):
         with open(self.FILE_SCORE, 'w') as f:
             for i, member_id, member_ref in enumerate(self._score.items()):
                 self._score[member_id][0] = i
-                f.write(self._format_score(member))
+                f.write(self._format_score(member_id))
         return None
 
     @commands.Cog.listener()
@@ -440,19 +440,12 @@ class Main(commands.Cog):
     async def shoot(self, context: Context, member: Member) -> None:
         gun_role = context.guild.get_role(self.GUN_ID)
         if not context.author.get_role(self.GUN_ID):
-            await context.send(f"{context.author.mention} is not carrying a {gun_role.mention}")
+            await context.send(f"{context.author.mention} is not carrying a {gun_role.mention}.")
             return None
         if not self._get_health(member).value:
             await context.send(f"{member.mention} has zero health.")
             return None
-        self._decrease_health(member)
-        if not self._get_health(member).value:
-            self._clear_score(member)
-            self._remove_all_roles(member)
-            level_zero = member.guild.get_role(self._level[0])
-            post_perm = member.guild.get_role(self.PERM_POST_ID)
-            sick = member.guild.get_role(self.SICK_ID)
-            await member.add_roles(*[level_zero, post_perm, sick])
+        await self._decrease_health(member)
         return None
 
     @slave.command()
@@ -665,7 +658,7 @@ class Main(commands.Cog):
 
     async def _clear_score(self, member: Member) -> None:
         member_ref = self._score[member.id]
-        self._score[member.id] = [member_ref[0], member_ref[1], 0, 0, 0]
+        self._score[member.id] = [member_ref[0], member_ref[1], member_ref[2], 0, 0, 0]
         await self._level_up(member)
         return None
 
@@ -709,9 +702,28 @@ class Main(commands.Cog):
         await guild.edit_role_positions(positions={new_role: position})
         return new_role
 
-    async def _decrease_health(self, member) -> None:
+    async def _decrease_health(self, member: Member) -> None:
         health_ref = self._get_health(member)
         health_ref.value -= 1
+        heart_role = member.guild.get_role(self.HEART_ID)
+        if health_ref.value:
+            note = f"{member.mention} lost a {heart_role.mention}!\nTotal: {self._get_health_str}"
+            embed = Embed(title='Ouch!', description=note, color=heart_role.color)
+            embed.set_image(url=member.display_avatar.url)
+            await member.guild.system_channel.send(embed=embed)
+        else:
+            self._clear_score(member)
+            self._remove_all_roles(member)
+            level_zero = member.guild.get_role(self._level[0])
+            post_perm = member.guild.get_role(self.PERM_POST_ID)
+            sick = member.guild.get_role(self.SICK_ID)
+            await member.add_roles(*[level_zero, post_perm, sick])
+            level_at_heart = self._get_level_at_heart(member)
+            level_at_heart.value = self._level[0]
+            note = f"{member.mention} Died! {self._get_health_str}"
+            embed = Embed(title='Ouch!', description=note, color=heart_role.color)
+            embed.set_image(url=member.display_avatar.url)
+            await member.guild.system_channel.send(embed=embed)
         return None
 
     async def _decrease_score(self, member: Member, points: int) -> None:
@@ -723,13 +735,16 @@ class Main(commands.Cog):
         await self._level_up(member)
         return None
 
-    def _format_score(self, member: Member) -> str:
-        score_ref = self._score[member.id]
-        return f"{member.id:<20},{score_ref[1]:<20},{score_ref[2]:0>2},{score_ref[3]:0>13},{score_ref[4]:0>13}\n"
+    def _format_score(self, member_id: int) -> str:
+        score_ref = self._score[member_id]
+        return f"{member_id:<20},{score_ref[1]:<20},{score_ref[2]:<20},{score_ref[3]:0>2},{score_ref[4]:0>13},{score_ref[5]:0>13}\n"
 
     async def _increase_health(self, member: Member) -> None:
         health_ref = self._get_health(member)
         health_ref.value += 1
+        heart_role = member.guild.get_role(self.HEART_ID)
+        note = f"{member.mention} got +1 {heart_role.mention}!\nTotal: {self._get_health_str}"
+        await self._send_image_embed(member, '+1 Health!', note, 'database/items/heart.png', heart_role.color)
         return None
 
     async def _increase_posts(self, member: Member, posts: int = 1) -> None:
@@ -754,7 +769,7 @@ class Main(commands.Cog):
         return (context.author.id == self.ADMIN_USER_ID) or any(role.id == self.ADMIN_ROLE_ID for role in context.author.roles)
 
     def _get_health(self, member: Member) -> ElementRef:
-        return ElementRef(self._score[member.id], 2)
+        return ElementRef(self._score[member.id], 3)
 
     def _get_health_str(self, member: Member) -> str:
         if self._get_health(member).value:
@@ -763,6 +778,9 @@ class Main(commands.Cog):
 
     def _get_level(self, member: Member) -> ElementRef:
         return ElementRef(self._score[member.id], 1)
+
+    def _get_level_at_heart(self, member: Member) -> ElementRef:
+        return ElementRef(self._score[member.id], 2)
 
     async def _get_message_embed(self, context: Context, message_id: int) -> Embed:
         message = await context.channel.fetch_message(message_id)
@@ -774,14 +792,16 @@ class Main(commands.Cog):
         return embed
 
     def _get_posts(self, member: Member) -> ElementRef:
-        return ElementRef(self._score[member.id], 3)
-
-    def _get_score(self, member: Member) -> ElementRef:
         return ElementRef(self._score[member.id], 4)
 
+    def _get_score(self, member: Member) -> ElementRef:
+        return ElementRef(self._score[member.id], 5)
+
     async def _level_up(self, member: Member) -> None:
+        def lvl_to_int(role: Role) -> int:
+            return int(role.name.removeprefix('LVL '))
         level_role = member.get_role(self._get_level(member).value)
-        curr_lvl_n = int(level_role.name.removeprefix('LVL '))
+        curr_lvl_n = lvl_to_int(level_role)
         next_lvl_n = self._calc_level(member)
         if next_lvl_n != curr_lvl_n:
             if next_lvl_n > curr_lvl_n:
@@ -810,20 +830,23 @@ class Main(commands.Cog):
             await member.add_roles(new_level_role)
             if not member.get_role(self.PRISONER_ID):
                 # Level up message
-                filename = f"{(next_lvl_n % 2) + 1}.png"
+                filepath = f"database/images/{(next_lvl_n % 2) + 1}.png"
                 note = f"{member.mention} {prefix}graded from {level_role.mention} to {new_level_role.mention}"
-                await self._send_image_embed(member, title, note, filename, level_role.color)
+                await self._send_image_embed(member, title, note, filepath, level_role.color)
             # Raise health
-            if next_lvl_n % 10 == 0:
-                self._increase_health(member)
-                heart_role = member.guild.get_role(self.HEART_ID)
-                note = f"{member.mention} got +1 {heart_role.mention}"
-                await self._send_image_embed(member, '+1 Health!', note, 'heart.png', heart_role.color)
+            level_at_heart = self._get_level_at_heart(member)
+            lvls_since_heart = (next_lvl_n - lvl_to_int(level_at_heart))
+            if (next_lvl_n == 1) & (lvl_to_int(level_at_heart) == 0):
+                # First level gets a heart.
+                await self._increase_health(member)
+            elif (lvls_since_heart > 0) and (lvls_since_heart == 10):
+                await self._increase_health(member)
+                level_at_heart.value = new_level_role.id
         # Update database
         member_ref = self._score[member.id]
         with open(self.FILE_SCORE, 'r+') as f:
-            f.seek((member_ref[0] * 73))
-            f.write(self._format_score(member))
+            f.seek((member_ref[0] * 94))
+            f.write(self._format_score(member.id))
         return None
 
     async def _remove_all_roles(self, member: Member) -> None:
@@ -877,9 +900,10 @@ class Main(commands.Cog):
         await channel.send(embed=embed)
         return None
 
-    async def _send_image_embed(self, author: Member, title: str, note: str, filename: str, color: Color) -> None:
+    async def _send_image_embed(self, author: Member, title: str, note: str, filepath: str, color: Color) -> None:
+        filename = filepath.split('/')[-1]
         embed = Embed(title=title, description=note, color=color)
-        file = File(f"database/images/{filename}", filename=filename)
+        file = File(filepath, filename=filename)
         embed.set_image(url=f"attachment://{filename}")
         embed.set_author(name=author.display_name, icon_url=author.display_avatar.url)
         guild = self.bot.get_guild(self.SERVER_ID)
