@@ -1,9 +1,10 @@
 from math import sqrt
+from pathlib import Path
 
 
 class Player:
 
-    FILE = 'database/text_file/stats.txt'
+    file = Path('database/text_file/stats.txt')
 
     def __init__(self, index, player_id: int, health: int, level: int,
                  level_heart: int, posts: int, reacts: int, score: int):
@@ -27,8 +28,8 @@ class Player:
         a, b, c  = A / 9801, 0.89797, self.score - 1
         x = 1 + (sqrt(abs(b*b - 4*a*c)) - b) / (2*a)
         level = int(x)
-        if level > 100:
-            level = 100
+        if level > 99:
+            level = 99
         return level
 
     def clear_score(self) -> None:
@@ -48,6 +49,11 @@ class Player:
         self.update()
         return None
 
+    def decrease_reacts(self) -> None:
+        self.reacts -= 1
+        self.decrease_score(1)
+        self.update()
+
     def decrease_score(self, points: int) -> None:
         if self.score - points > 0:
             self.score -= points
@@ -58,9 +64,10 @@ class Player:
 
     def format(self,) -> str:
         return (f"{self.id:<20},"
-                f"{self.health:<20},"
+                f"{self.health:0>3},"
                 f"{self.level:0>2},"
-                f"{self.level_heart:0>13},"
+                f"{self.level_heart:0>2},"
+                f"{self.posts:0>13},"
                 f"{self.reacts:0>13},"
                 f"{self.score:0>13}\n")
 
@@ -74,10 +81,14 @@ class Player:
         self.update()
         return None
 
-    def increase_posts(self, posts: int = 1) -> None:
-        self.posts += posts
-        self.increase_score(posts)
+    def increase_posts(self) -> None:
+        self.posts += 1
+        self.increase_score(1)
         return None
+
+    def increase_reacts(self) -> None:
+        self.reacts += 1
+        self.increase_score(1)
 
     def increase_score(self, points: int) -> None:
         self.score += points
@@ -101,6 +112,7 @@ class Player:
         return -1
 
     def update(self) -> None:
-        with open(self.FILE, 'r+') as f:
-            f.seek((self.index * len(self)))
-            f.write(self.format())
+        data = self.format()
+        with open(str(self.file), 'r+') as f:
+            f.seek(self.index * len(data))
+            f.write(data)
