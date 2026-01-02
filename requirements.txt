@@ -7,13 +7,7 @@ discord.py==2.6.4
 frozenlist==1.8.0
 idna==3.11
 multidict==6.7.0
-numpy==2.0.2
-pandas==2.3.3
 pillow==11.3.0
 propcache==0.4.1
-python-dateutil==2.9.0.post0
-pytz==2025.2
-six==1.17.0
 typing_extensions==4.15.0
-tzdata==2025.3
 yarl==1.22.0

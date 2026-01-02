@@ -3,27 +3,34 @@ from pathlib import Path
 from re import fullmatch
 from typing import Union
 
-from discord import Member, Role
+from discord import Member
 from PIL import Image
 
 
 class Paint:
 
+    file = Path('database/files/color.txt')
+
     def __init__(self):
         self._paint = {}
-        if self.file.exists:
+        if self.file.exists():
             with open(str(self.file)) as f:
                 for line in f.readlines():
-                    role_id, hex_code = line.split(',')
-                    self._paint[int(role_id)] = hex_code.strip()
+                    paint_id, hex_code = line.split(',')
+                    self._paint[int(paint_id)] = hex_code.strip()
         else:
             self.file.touch()
 
+    def delete(self, paint_id: int) -> None:
+        remove(self.image_path(self._paint[paint_id]))
+        del self._paint[paint_id]
+        with open(str(self.file), 'w') as f:
+            for paint_id, hex_code in self._paint.items():
+                f.write(f"{paint_id},{hex_code}")
+        return None
+
     def exists(self, paint_id: int) -> bool:
         return paint_id in self._paint
-
-    def file_path(self, hex_code: str) -> str:
-        return f"database/colors/{hex_code}.png"
 
     def get(self, id_or_hex: Union[int, str]) -> Union[int, str]:
         if isinstance(id_or_hex, int):
@@ -34,14 +41,17 @@ class Paint:
                 return paint_id
         return 0
 
+    def image_path(self, hex_code: str) -> str:
+        return f"database/colors/{hex_code}.png"
+
+    def is_hexcode(str_: str) -> bool:
+        return fullmatch(r'#([0-9a-fA-F]{6})', str_)
+
     def pop(self) -> int:
         for paint_id in self._paint:
             break
         self.remove_from_db(paint_id)
         return paint_id
-
-    def is_hexcode(str_: str) -> bool:
-        return fullmatch(r'#([0-9a-fA-F]{6})', str_)
 
     def mix(*hex_codes: str) -> str:
         r, g, b = 0, 0, 0
@@ -54,16 +64,8 @@ class Paint:
         b = round(b / len(hex_codes))
         return f"#{r:02X}{g:02X}{b:02X}"
 
-    async def remove(self, member: Member) -> None:
+    async def remove_from(self, member: Member) -> None:
         await member.remove_roles(*[role for role in member.roles if self.exists(role.id)])
-
-    def remove_from_db(self, paint_id: int) -> None:
-        remove(self.file_path(self._paint[paint_id]))
-        del self._paint[paint_id]
-        with open(str(self.file), 'w') as f:
-            for paint_id, hex_code in self._paint.items():
-                f.write(f"{paint_id},{hex_code}")
-        return None
 
     def update(self, paint_id: str, hex_code: str) -> None:
         hex_code = hex_code.lstrip('#').upper()
@@ -71,5 +73,5 @@ class Paint:
         with open(str(self.file), 'a') as f:
             f.write(f"{paint_id}, {hex_code}\n")
         img = Image.new("RGB", (256, 256), tuple(bytes.fromhex(hex_code)))
-        img.save(self.file_path(hex_code), format='PNG')
+        img.save(self.image_path(hex_code), format='PNG')
         return None
