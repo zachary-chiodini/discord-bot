@@ -27,13 +27,14 @@ class Game:
         self.admin = ('🐈', Item('#FFFF00',
             '🌟 Imbues owner with God-like prowess 🦄🌈✨',
             'neko', 99999, '♾️', Permissions(administrator=True)))
+        self.extas = {'💀': '#CC2020', '👻': '#67544E'}
         self.guild = guild
         self.items = {
+            '❤️': Item('#BE1931', '⭐ Used to stay alive\n⚠️ **Extra**: +1 ❤️ every 10 levels',
+                'heart', 250, '♾️'),
             '👺': Item('#000000',
                 '⭐ Causes transitory intermittent blindness\n⚠️ **Removes**: ❤️',
                 'mask', 0, 4, Permissions(read_message_history=False, read_messages=False)),
-            '❤️': Item('#BE1931', '⭐ Used to stay alive\n⚠️ **Extra**: +1 ❤️ every 10 levels',
-                'heart', 250, '♾️'),
             '🪬': Item('#917EB3', '⭐ Enables one to enter the church',
                 'idol', 1000, '♾️'),
             '🛡️': Item('#006769',
@@ -49,6 +50,8 @@ class Game:
                 'gun', 250, 4),
             '🔪': Item('#401B1B', '⭐ **Removes**: ❤️\n⚠️ **Extra**: May cause bleeding 🩸⏱️',
                 'knife', 250, 2),
+            '🍅': Item('#401B1B', '⭐ **Removes**: 250 Points⚠️ **Extra**: Mortification',
+                'tomato', -250, 1),
             '🪙': Item('#D4AF37', '⭐ Used to purchase items ☝🤓', 'coin', 250, '♾️'),
             '📜': Item('#FFFFC5', '⭐ Enables reader to change their name', 'scroll', 100, 4,
                 Permissions(change_nickname=True)),
@@ -81,7 +84,7 @@ class Game:
         }
         self.roles = {}
         self.stats = Stats()
-        self.stackable = {'👺', '❤️', '🛡️', '☣️', '☢️', '🔫', '🔪'}
+        self.stackable = {'👺', '❤️', '🛡️', '☣️', '☢️', '🔫', '🔪', '🍅', '🪙'}
         self._post = PermissionOverwrite(view_channel=True, send_messages=True,
             add_reactions=True, create_polls=True, create_public_threads=True,
             create_private_threads=True)
@@ -115,6 +118,8 @@ class Game:
         await self.create_role('0', '#FF6600', alias='Level')
         name, item = self.admin[0], self.admin[1]
         await self.create_role(name, item.color, hoist=True, perms=item.perms)
+        for name, hex_code in self.extas:
+            await self.create_role(name, hex_code)
         for name, item in self.items.items():
             await self.create_role(name, item.color, perms=item.perms)
         for name, hex_code in self.prime.items():
@@ -169,6 +174,33 @@ class Game:
         await self.send_img(role, context.channel, hex_code.lstrip('#').upper(),
             f"**Created**: {role.mention}", '')
         return '**New Color Created!**'
+
+    async def create_heart(self, member: Member, n: int = 1) -> None:
+        if member.get_role(self.roles['💀'].id):
+            await member.remove_roles(self.roles['💀'])
+        guild_hearts =  self.roles['❤️']
+        member_hearts = set()
+        for role in member.roles:
+            if role in guild_hearts:
+                member_hearts.add(role)
+        total_hearts = len(member_hearts) + n
+        if total_hearts >= len(guild_hearts):
+            for heart in guild_hearts:
+                for _ in range(total_hearts - len(guild_hearts)):
+                    await self.create_role('❤️', self.items['❤️'].color, ref_role=heart)
+                break
+        new_hearts = 0
+        for new_role in self.roles['❤️']:
+            if not member.get_role(new_role.id):
+                await member.add_roles(new_role)
+                new_hearts += 1
+                if new_hearts == n:
+                    break
+        note = (f"Got +{n} {new_role.mention}!\n"
+            f"Total: {self.stats.get_health_str(member.id)}")
+        await self.send_img(
+            new_role, member.guild.system_channel, 'heart', note, 'New Item', member)
+        return None
 
     async def create_hospital(self) -> None:
         hospital_perms = {self.roles['Scientist']: self._view,
@@ -275,31 +307,6 @@ class Game:
             '🛡️⚔️COMMANDMENTS⚔️🛡️', overwrites=rules_perms)
         for rule in ['no-anime', 'no-bullying', 'no-gore', 'no-nudes']:
             await category.create_text_channel(name=f"⛔{rule}🗃️")
-        return None
-
-    async def create_heart(self, member: Member, n: int = 1) -> None:
-        guild_hearts =  self.roles['❤️']
-        member_hearts = set()
-        for role in member.roles:
-            if role in guild_hearts:
-                member_hearts.add(role)
-        total_hearts = len(member_hearts) + n
-        if total_hearts >= len(guild_hearts):
-            for heart in guild_hearts:
-                for _ in range(total_hearts - len(guild_hearts)):
-                    await self.create_role('❤️', self.items['❤️'].color, ref_role=heart)
-                break
-        new_hearts = 0
-        for new_role in self.roles['❤️']:
-            if not member.get_role(new_role.id):
-                await member.add_roles(new_role)
-                new_hearts += 1
-                if new_hearts == n:
-                    break
-        note = (f"Got +{n} {new_role.mention}!\n"
-            f"Total: {self.stats.get_health_str(member.id)}")
-        await self.send_img(
-            new_role, member.guild.system_channel, 'heart', note, 'New Item', member)
         return None
 
     async def decrease_reacts(self, member: Member) -> None:

@@ -31,8 +31,9 @@ class Base(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_join(self, member: Member) -> None:
-        await member.add_roles(*[self.gamer.roles['Level'][0], self.gamer.roles['Outsider'],
-            self.gamer.roles['💎'], self.gamer.roles['🪨'], self.gamer.roles['🕹️']])
+        await member.add_roles(*[self.gamer.roles['Level'][0], self.gamer.roles['💀'],
+            self.gamer.roles['💎'], self.gamer.roles['🪨'], self.gamer.roles['🕹️'],
+            self.gamer.roles['Outsider']])
         await self.gamer.send_img(
             self.gamer.roles['Outsider'], member.guild.system_channel, 'meilanliu',
             f"Name: {member.name}\nAlias: {member.mention}", 'Outsider Identifed', member)
