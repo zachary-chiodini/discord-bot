@@ -29,12 +29,12 @@ class Paint:
                 f.write(f"{paint_id},{hex_code}")
         return None
 
-    def exists(self, paint_id: int) -> bool:
+    def id_exists(self, paint_id: int) -> bool:
         return paint_id in self._paint
 
     def get(self, id_or_hex: Union[int, str]) -> Union[int, str]:
         if isinstance(id_or_hex, int):
-            return self._paint[id_or_hex]
+            return f"#{self._paint[id_or_hex]}"
         hex_code = id_or_hex.lstrip('#')
         for paint_id, hex_code_i in self._paint.items():
             if hex_code_i == hex_code:
@@ -42,17 +42,19 @@ class Paint:
         return 0
 
     def image_path(self, hex_code: str) -> str:
-        return f"database/colors/{hex_code}.png"
+        return f"database/images/{hex_code}.png"
 
+    @staticmethod
     def is_hexcode(str_: str) -> bool:
         return fullmatch(r'#([0-9a-fA-F]{6})', str_)
 
     def pop(self) -> int:
         for paint_id in self._paint:
             break
-        self.remove_from_db(paint_id)
+        self.delete(paint_id)
         return paint_id
 
+    @staticmethod
     def mix(*hex_codes: str) -> str:
         r, g, b = 0, 0, 0
         for hex_code in hex_codes:
@@ -65,7 +67,16 @@ class Paint:
         return f"#{r:02X}{g:02X}{b:02X}"
 
     async def remove_from(self, member: Member) -> None:
-        await member.remove_roles(*[role for role in member.roles if self.exists(role.id)])
+        await member.remove_roles(*[role for role in member.roles if self.id_exists(role.id)])
+        return None
+
+    def reset(self) -> None:
+        if self.file.exists():
+            self.file.write_text('')
+        for _, hex_code in self._paint.items():
+            remove(self.image_path(hex_code.lstrip('#')))
+        self._paint = {}
+        return None
 
     def update(self, paint_id: str, hex_code: str) -> None:
         hex_code = hex_code.lstrip('#').upper()
