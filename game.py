@@ -27,7 +27,7 @@ class Game:
         self.admin = ('🐈', Item('#FFFF00',
             '🌟 Imbues owner with God-like prowess 🦄🌈✨',
             'neko', 99999, '♾️', Permissions(administrator=True)))
-        self.extas = {'💀': '#CC2020', '👻': '#67544E'}
+        self.extras = {'💀': '#CC2020', '👻': '#67544E'}
         self.guild = guild
         self.items = {
             '❤️': Item('#BE1931', '⭐ Used to stay alive\n⚠️ **Extra**: +1 ❤️ every 10 levels',
@@ -50,7 +50,7 @@ class Game:
                 'gun', 250, 4),
             '🔪': Item('#401B1B', '⭐ **Removes**: ❤️\n⚠️ **Extra**: May cause bleeding 🩸⏱️',
                 'knife', 250, 2),
-            '🍅': Item('#401B1B', '⭐ **Removes**: 250 Points⚠️ **Extra**: Mortification',
+            '🍅': Item('#401B1B', '⭐ **Removes**: 250 Points\n⚠️ **Extra**: Mortification',
                 'tomato', -250, 1),
             '🪙': Item('#D4AF37', '⭐ Used to purchase items ☝🤓', 'coin', 250, '♾️'),
             '📜': Item('#FFFFC5', '⭐ Enables reader to change their name', 'scroll', 100, 4,
@@ -118,7 +118,7 @@ class Game:
         await self.create_role('0', '#FF6600', alias='Level')
         name, item = self.admin[0], self.admin[1]
         await self.create_role(name, item.color, hoist=True, perms=item.perms)
-        for name, hex_code in self.extas:
+        for name, hex_code in self.extras.items():
             await self.create_role(name, hex_code)
         for name, item in self.items.items():
             await self.create_role(name, item.color, perms=item.perms)
@@ -163,7 +163,12 @@ class Game:
             f"{item.desc}\n🅿️ **Points**: {item.points}\n🪙 **Coins**: {item.price}",
             f"God-like Neko {name}")
         for name, item in self.items.items():
-            await self.send_img(self.roles[name], channel, item.filename,
+            if name in self.stackable:
+                for role in self.roles[name]:
+                    break
+            else:
+                role = self.roles[name]
+            await self.send_img(role, channel, item.filename,
                 f"{item.desc}\n🅿️ **Points**: {item.points}\n🪙 **Coins**: {item.price}",
                 f"{item.filename.title()} {name}")
         return None
@@ -411,7 +416,7 @@ class Game:
             if not self.paint.id_exists(role.id):
                 if role.name.isdigit():
                     self.roles['Level'].add(role)
-                elif role.name in self.roles:
+                elif role.name in self.stackable:
                     self.roles[role.name].add(role)
                 else:
                     self.roles[role.name] = role
