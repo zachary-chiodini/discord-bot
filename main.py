@@ -1,4 +1,3 @@
-from asyncio import sleep
 from typing import Union
 
 from discord import (app_commands, Guild, Intents,
@@ -38,7 +37,7 @@ class Base(commands.Cog):
             self.gamer.roles['Outsider'], member.guild.system_channel, 'meilanliu',
             f"Name: {member.name}\nAlias: {member.mention}", 'Outsider Identifed', member)
         await member.guild.system_channel.send(
-            f"{member.mention}, why are you here? What is your age?")
+            f"{member.mention}, why are you here?")
         return None
 
     @commands.Cog.listener()
