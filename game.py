@@ -388,9 +388,8 @@ class Game:
             note = f"{prefix}graded From Level {old_role.mention} to Level {new_role.mention}" 
             channel = member.guild.system_channel
             await self.send_img(new_role, channel, str((next_lvl % 7) + 1), note, title, member)
-            n_hearts = self.stats.level_hearts(member.id)
-            if n_hearts:
-                await self.create_heart(member, n_hearts)
+            for _ in range(self.stats.level_hearts(member.id)):
+                await self.create_heart(member)
         return None
 
     async def reset(self) -> str:
