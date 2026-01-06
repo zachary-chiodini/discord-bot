@@ -183,8 +183,6 @@ class Game:
         for role in member.roles:
             if role.name.startswith('💀'):
                 new_role = self.roles['❤️']
-                await member.remove_roles(role)
-                await member.add_roles(new_role)
                 image = 'heart'
                 title = 'Animation'
                 notes = f"{member.mention} just animated!\n**Vigor**: {new_role.mention}"
@@ -194,8 +192,6 @@ class Game:
                 if count == 10:
                     return None
                 new_role = self.roles['❤️' * (count + 1)]
-                await member.remove_roles(role)
-                await member.add_roles(new_role)
                 image = 'heart'
                 if (count + 1) == 10:
                     title = 'Achieved Maximum Potency'
@@ -203,6 +199,7 @@ class Game:
                 else:
                     title = 'Got a Heart!'
                     notes = f"{member.mention} got +1 ❤️!\n**Vigor**: {new_role.mention}"
+                break
             elif role.name.startswith('👻'):
                 count = role.name.count('👻')
                 if count > 1:
@@ -213,9 +210,10 @@ class Game:
                     new_role = self.roles['💀']
                     title = 'Transmutation'
                     notes = f"{member.mention} is liminal.\n**Vigor**: 💀"
-                await member.remove_roles(role)
-                await member.add_roles(new_role)
                 image = 'ghost'
+                break
+        await member.remove_roles(role)
+        await member.add_roles(new_role)
         await self.send_img(
             new_role, member.guild.system_channel, image, notes, title, member)
         return None
@@ -391,6 +389,41 @@ class Game:
             for _ in range(self.stats.level_hearts(member.id)):
                 await self.create_heart(member)
         return None
+
+    async def remove_heart(self, member: Member) -> None:
+        for role in member.roles:
+            if role.name.startswith('💀'):
+                new_role = self.roles['👻']
+                image = 'ghost'
+                title = 'Dead'
+                notes = f"{member.mention} just died!\n**Vigor**: {new_role.mention}"
+                break
+            elif role.name.startswith('❤️'):
+                image = 'heart'
+                count = role.name.count('❤️')
+                if count > 1:
+                    new_role = self.roles['❤️' * (count - 1)]
+                    title = 'Ouch'
+                    notes = f"{member.mention} lost a heart!\n**Vigor**: {new_role.mention}"
+                else:
+                    new_role = self.roles['💀']
+                    title = 'Critical'
+                    notes = f"{member.mention} is critical!\n**Vigor**: {new_role.mention}"
+                break
+            elif role.name.startswith('👻'):
+                count = role.name.count('👻')
+                if count == 5:
+                    await member.kick(reason='**Vigor**: -6')
+                    return None
+                new_role = self.roles['👻' * (count + 1)]
+                image = 'ghost'
+                title = 'Transmogrification'
+                notes = f"{member.mention} is transmogrifying!\n**Vigor**: {new_role.mention}"
+                break
+        await member.remove_roles(role)
+        await member.add_roles(new_role)
+        await self.send_img(
+            new_role, member.guild.system_channel, image, notes, title, member)
 
     async def reset(self) -> str:
         m, n = 0, 0
