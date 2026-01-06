@@ -378,8 +378,6 @@ class Game:
         for old_role in member.roles:
             if old_role in self.roles['Level']:
                 break
-        else:
-            old_role = self.roles['Level'][0]
         curr_lvl = int(old_role.name)
         next_lvl = self.stats.level_up(member.id)
         if next_lvl != curr_lvl:
