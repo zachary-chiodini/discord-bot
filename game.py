@@ -24,9 +24,14 @@ class Item:
 class Game:
 
     def __init__(self, guild: Guild):
-        self.admin = ('🐈', Item('#FFFF00',
+        self.admin = {'🐈': Item('#FFFF00',
             '🌟 Imbues owner with God-like prowess 🦄🌈✨',
-            'neko', 99999, '♾️', Permissions(administrator=True)))
+            'neko', 99999, '♾️', Permissions(administrator=True))}
+        self.coin = {'🪙': Item('#D4AF37', '⭐ Used to purchase items ☝🤓', 'coin', 250, '♾️')}
+        self.coins = {'🪙🪙': '#D4AF37', '🪙🪙🪙': '#D4AF37', '🪙🪙🪙🪙': '#D4AF37',
+            '🪙x5': '#D4AF37', '🪙x10': '#D4AF37', '🪙x25': '#D4AF37', '🪙x100': '#D4AF37'}
+        self.life = {'❤️': Item('#BE1931',
+            '⭐ Used to stay alive\n⚠️ **Extra**: +1 ❤️ every 10 levels', 'heart', 250, '♾️')}
         self.life_roles = {'💀': '#CC2020', '❤️❤️': '#BE1931', '❤️❤️❤️': '#BE1931',
             '❤️❤️❤️❤️': '#BE1931', '❤️❤️❤️❤️❤️': '#BE1931', '❤️❤️❤️❤️❤️❤️': '#BE1931',
             '❤️❤️❤️❤️❤️❤️❤️': '#BE1931', '❤️❤️❤️❤️❤️❤️❤️❤️': '#BE1931',
@@ -34,9 +39,8 @@ class Game:
             '👻': '#67544E', '👻👻': '#67544E', '👻👻👻': '#67544E',
             '👻👻👻👻': '#67544E', '👻👻👻👻👻': '#67544E'}
         self.guild = guild
+        self.stackable = {'👺', '🛡️', '☣️', '☢️', '🔫', '🔪', '🍅'}
         self.items = {
-            '❤️': Item('#BE1931', '⭐ Used to stay alive\n⚠️ **Extra**: +1 ❤️ every 10 levels',
-                'heart', 250, '♾️'),
             '👺': Item('#000000',
                 '⭐ Causes transitory intermittent blindness\n⚠️ **Removes**: ❤️',
                 'mask', 0, 4, Permissions(read_message_history=False, read_messages=False)),
@@ -57,7 +61,6 @@ class Game:
                 'knife', 250, 2),
             '🍅': Item('#401B1B', '⭐ **Removes**: 250 Points\n⚠️ **Extra**: Mortification',
                 'tomato', -250, 1),
-            '🪙': Item('#D4AF37', '⭐ Used to purchase items ☝🤓', 'coin', 250, '♾️'),
             '📜': Item('#FFFFC5', '⭐ Enables reader to change their name', 'scroll', 100, 4,
                 Permissions(change_nickname=True)),
             '💎': Item('#809CA7', '⭐ Enables holder to react', 'charm', 75, 3,
@@ -66,12 +69,12 @@ class Game:
                 '⭐ Enables caster to attach files, connect to voice channels, embed links and use external emojis and stickers',
                 'wand', 50, 2, Permissions(attach_files=True, connect=True, embed_links=True,
                     use_external_emojis=True, use_external_stickers=True)),
-            '🕹️': Item('#4169E1',
-                f'⭐ Enables user to control {self.guild.me.mention} with /',
-                'remote', 25, 1, Permissions(use_application_commands=True)),
             '🪨': Item('#7DA27E', '⭐ Enables holder to post', 'rune', 25, 1,
                 Permissions(send_messages=True, send_messages_in_threads=True,
-                    create_polls=True, create_public_threads=True))
+                    create_polls=True, create_public_threads=True)),
+            '🕹️': Item('#4169E1',
+                f'⭐ Enables user to control {self.guild.me.mention} with /',
+                'remote', 25, 1, Permissions(use_application_commands=True))
         }
         self.paint = Paint()
         self.prime = {
@@ -120,12 +123,22 @@ class Game:
             read_message_history = True, send_voice_messages = True, speak = True,
             stream = True, use_voice_activation = True))
         await self.create_role('0', '#FF6600', alias='Level')
-        name, item = self.admin[0], self.admin[1]
-        await self.create_role(name, item.color, hoist=True, perms=item.perms)
+        for name, item in self.admin.items():
+            await self.create_role(name, item.color, hoist=True, perms=item.perms)
+        for name, item in self.life.items():
+            await self.create_role(name, item.color)
         for name, hex_code in self.life_roles.items():
+            await self.create_role(name, hex_code)
+        for name, item in self.coin.items():
+            await self.create_role(name, item.color)
+        for name, hex_code in self.coins.items():
             await self.create_role(name, hex_code)
         for name, item in self.items.items():
             await self.create_role(name, item.color, perms=item.perms)
+            if name in self.stackable:
+                # Allows stacking 3 of the same item.
+                for i in range(2, 4):
+                    await self.create_role(name * i, item.color, perms=item.perms)
         for name, hex_code in self.prime.items():
             await self.create_role(name, hex_code, hoist=True)
         return None
@@ -162,10 +175,10 @@ class Game:
         # Market Channel
         market_perms = self._view_only | self._main_perms() | {self.roles['Outsider']: self._view}
         channel = await bulletin.create_text_channel('🌳🏬-market', overwrites=market_perms)
-        name, item = self.admin[0], self.admin[1]
-        await self.send_img(self.roles[name], channel, item.filename,
-            f"{item.desc}\n🅿️ **Points**: {item.points}\n🪙 **Coins**: {item.price}",
-            f"God-like Neko {name}")
+        for name, item in self.admin.items():
+            await self.send_img(self.roles[name], channel, item.filename,
+                f"{item.desc}\n🅿️ **Points**: {item.points}\n🪙 **Coins**: {item.price}",
+                f"God-like Neko {name}")
         for name, item in self.items.items():
             await self.send_img(self.roles[name], channel, item.filename,
                 f"{item.desc}\n🅿️ **Points**: {item.points}\n🪙 **Coins**: {item.price}",
