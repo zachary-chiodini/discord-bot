@@ -27,7 +27,12 @@ class Game:
         self.admin = ('🐈', Item('#FFFF00',
             '🌟 Imbues owner with God-like prowess 🦄🌈✨',
             'neko', 99999, '♾️', Permissions(administrator=True)))
-        self.extras = {'💀': '#CC2020', '👻': '#67544E'}
+        self.life_roles = {'💀': '#CC2020', '❤️❤️': '#BE1931', '❤️❤️❤️': '#BE1931',
+            '❤️❤️❤️❤️': '#BE1931', '❤️❤️❤️❤️❤️': '#BE1931', '❤️❤️❤️❤️❤️❤️': '#BE1931',
+            '❤️❤️❤️❤️❤️❤️❤️': '#BE1931', '❤️❤️❤️❤️❤️❤️❤️❤️': '#BE1931',
+            '❤️❤️❤️❤️❤️❤️❤️❤️❤️': '#BE1931', '❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️': '#BE1931',
+            '👻': '#67544E', '👻👻': '#67544E', '👻👻👻': '#67544E',
+            '👻👻👻👻': '#67544E', '👻👻👻👻👻': '#67544E'}
         self.guild = guild
         self.items = {
             '❤️': Item('#BE1931', '⭐ Used to stay alive\n⚠️ **Extra**: +1 ❤️ every 10 levels',
@@ -84,7 +89,6 @@ class Game:
         }
         self.roles = {}
         self.stats = Stats()
-        self.stackable = {'👺', '❤️', '🛡️', '☣️', '☢️', '🔫', '🔪', '🍅', '🪙'}
         self._post = PermissionOverwrite(view_channel=True, send_messages=True,
             add_reactions=True, create_polls=True, create_public_threads=True,
             create_private_threads=True)
@@ -118,7 +122,7 @@ class Game:
         await self.create_role('0', '#FF6600', alias='Level')
         name, item = self.admin[0], self.admin[1]
         await self.create_role(name, item.color, hoist=True, perms=item.perms)
-        for name, hex_code in self.extras.items():
+        for name, hex_code in self.life_roles.items():
             await self.create_role(name, hex_code)
         for name, item in self.items.items():
             await self.create_role(name, item.color, perms=item.perms)
@@ -163,12 +167,7 @@ class Game:
             f"{item.desc}\n🅿️ **Points**: {item.points}\n🪙 **Coins**: {item.price}",
             f"God-like Neko {name}")
         for name, item in self.items.items():
-            if name in self.stackable:
-                for role in self.roles[name]:
-                    break
-            else:
-                role = self.roles[name]
-            await self.send_img(role, channel, item.filename,
+            await self.send_img(self.roles[name], channel, item.filename,
                 f"{item.desc}\n🅿️ **Points**: {item.points}\n🪙 **Coins**: {item.price}",
                 f"{item.filename.title()} {name}")
         return None
@@ -180,31 +179,45 @@ class Game:
             f"**Created**: {role.mention}", '')
         return '**New Color Created!**'
 
-    async def create_heart(self, member: Member, n: int = 1) -> None:
-        if member.get_role(self.roles['💀'].id):
-            await member.remove_roles(self.roles['💀'])
-        guild_hearts =  self.roles['❤️']
-        member_hearts = set()
+    async def create_heart(self, member: Member) -> None:
         for role in member.roles:
-            if role in guild_hearts:
-                member_hearts.add(role)
-        total_hearts = len(member_hearts) + n
-        if total_hearts >= len(guild_hearts):
-            for heart in guild_hearts:
-                for _ in range(total_hearts - len(guild_hearts)):
-                    await self.create_role('❤️', self.items['❤️'].color, ref_role=heart)
-                break
-        new_hearts = 0
-        for new_role in self.roles['❤️']:
-            if not member.get_role(new_role.id):
+            if role.name.startswith('💀'):
+                new_role = self.roles['❤️']
+                await member.remove_roles(role)
                 await member.add_roles(new_role)
-                new_hearts += 1
-                if new_hearts == n:
-                    break
-        note = (f"Got +{n} {new_role.mention}!\n"
-            f"Total: {self.stats.get_health_str(member.id)}")
+                image = 'heart'
+                title = 'Animation'
+                notes = f"{member.mention} just animated!\n**Vigor**: {new_role.mention}"
+                break
+            elif role.name.startswith('❤️'):
+                count = role.name.count('❤️')
+                if count == 10:
+                    return None
+                new_role = self.roles['❤️' * (count + 1)]
+                await member.remove_roles(role)
+                await member.add_roles(new_role)
+                image = 'heart'
+                if (count + 1) == 10:
+                    title = 'Achieved Maximum Potency'
+                    notes = f"{member.mention} achieved maximum potency!\n**Vigor**: {new_role.mention}"
+                else:
+                    title = 'Got a Heart!'
+                    notes = f"{member.mention} got +1 ❤️!\n**Vigor**: {new_role.mention}"
+            elif role.name.startswith('👻'):
+                count = role.name.count('👻')
+                if count > 1:
+                    new_role = self.roles['👻' * (count - 1)]
+                    title = 'Rematerialization'
+                    notes = f"{member.mention} is rematerializing!\n**Vigor**: {'👻' * (count - 1)}"
+                else:
+                    new_role = self.roles['💀']
+                    title = 'Transmutation'
+                    notes = f"{member.mention} is liminal.\n**Vigor**: 💀"
+                await member.remove_roles(role)
+                await member.add_roles(new_role)
+                image = 'ghost'
         await self.send_img(
-            new_role, member.guild.system_channel, 'heart', note, 'New Item', member)
+            new_role, member.guild.system_channel, image, notes, title, member)
         return None
 
     async def create_hospital(self) -> None:
@@ -289,13 +302,12 @@ class Game:
             name=name, color=Color.from_str(hex_code), hoist=hoist)
         if alias:
             self.roles[alias].append(new_role)
-        elif name in self.stackable:
-            self.roles[name].add(new_role)
         else:
             self.roles[name] = new_role
         if perms:
             await new_role.edit(permissions=perms)
         if ref_role:
+            # New role is positioned under reference role.
             roles = [role for role in self.guild.roles if role.id != new_role.id]
             for index, role in enumerate(roles):
                 if role.id == ref_role.id:
@@ -410,14 +422,10 @@ class Game:
 
     def _collect_roles(self) -> None:
         self.roles['Level'] = set()
-        for icon in self.stackable:
-            self.roles[icon] = set()
         for role in self.guild.roles:
             if not self.paint.id_exists(role.id):
                 if role.name.isdigit():
                     self.roles['Level'].add(role)
-                elif role.name in self.stackable:
-                    self.roles[role.name].add(role)
                 else:
                     self.roles[role.name] = role
         self.roles['Level'] = sorted(self.roles['Level'],key=lambda r: int(r.name))
