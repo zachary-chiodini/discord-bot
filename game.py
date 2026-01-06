@@ -123,6 +123,8 @@ class Game:
             read_message_history = True, send_voice_messages = True, speak = True,
             stream = True, use_voice_activation = True))
         await self.create_role('0', '#FF6600', alias='Level')
+        for i in range(1, 100):
+            await self.create_role(str(i), f"#{Color.random().value:06X}", alias='Level')
         for name, item in self.admin.items():
             await self.create_role(name, item.color, hoist=True, perms=item.perms)
         for name, item in self.life.items():
@@ -217,13 +219,16 @@ class Game:
                 count = role.name.count('👻')
                 if count > 1:
                     new_role = self.roles['👻' * (count - 1)]
+                    image = 'ghost'
                     title = 'Rematerialization'
                     notes = f"{member.mention} is rematerializing!\n**Vigor**: {'👻' * (count - 1)}"
                 else:
                     new_role = self.roles['💀']
+                    image = 'meilanliu'
                     title = 'Transmutation'
                     notes = f"{member.mention} is liminal.\n**Vigor**: 💀"
-                image = 'ghost'
+                    await member.remove_roles(*[role for role in member.roles if role.name in self.prime])
+                    await member.add_roles(self.roles['Hospitalized'])
                 break
         await member.remove_roles(role)
         await member.add_roles(new_role)
@@ -381,14 +386,6 @@ class Game:
             if next_lvl > curr_lvl:
                 title = 'New Level Unlocked'
                 prefix = 'Up'
-                curr_len = len(self.roles['Level']) - 1
-                if next_lvl > curr_len:
-                    ref_role = old_role
-                    for i in range(next_lvl - curr_len):
-                        new_lvl = curr_len + i + 1
-                        new_role = await self.create_role(str(new_lvl),
-                            f"#{Color.random().value:06X}", alias='Level', ref_role=ref_role)
-                        ref_role = new_role
             else:
                 title = 'Level Lost'
                 prefix = 'Down'
@@ -410,6 +407,8 @@ class Game:
                 image = 'ghost'
                 title = 'Dead'
                 notes = f"{member.mention} just died!\n**Vigor**: {new_role.mention}"
+                await member.remove_roles(*[role for role in member.roles if role.name in self.prime])
+                await member.add_roles(self.roles['Ghost'])
                 break
             elif role.name.startswith('❤️'):
                 image = 'heart'
@@ -422,6 +421,8 @@ class Game:
                     new_role = self.roles['💀']
                     title = 'Critical'
                     notes = f"{member.mention} is critical!\n**Vigor**: {new_role.mention}"
+                    await member.remove_roles(*[role for role in member.roles if role.name in self.prime])
+                    await member.add_roles(self.roles['Hospitalized'])
                 break
             elif role.name.startswith('👻'):
                 count = role.name.count('👻')
