@@ -11,11 +11,11 @@ from stats import Stats
 
 class Item:
 
-    def __init__(self, color: str, desc: str, filename: str, points: int, price: Union[int, str],
-                 perms: Optional[Permissions] = None):
+    def __init__(self, color: str, name: str, points: int, price: Union[int, str],
+                 desc: str = '', perms: Optional[Permissions] = None):
         self.color = color
         self.desc = desc
-        self.filename = filename
+        self.name = name
         self.points = points
         self.price = price
         self.perms = perms
@@ -24,59 +24,99 @@ class Item:
 class Game:
 
     def __init__(self, guild: Guild):
-        self.admin = {'🐈': Item('#FFFF00',
-            '🌟 Imbues owner with God-like prowess 🦄🌈✨',
-            'neko', 99999, '♾️', Permissions(administrator=True))}
-        self.coin = {'🪙': Item('#D4AF37', '⭐ Used to purchase items ☝🤓', 'coin', 250, '♾️')}
-        self.coins = {'🪙🪙': '#D4AF37', '🪙🪙🪙': '#D4AF37', '🪙🪙🪙🪙': '#D4AF37',
-            '🪙x5': '#D4AF37', '🪙x10': '#D4AF37', '🪙x25': '#D4AF37', '🪙x100': '#D4AF37'}
-        self.life = {'❤️': Item('#BE1931',
-            '⭐ Used to stay alive\n⚠️ **Extra**: +1 ❤️ every 10 levels', 'heart', 250, '♾️')}
-        self.life_roles = {'💀': '#CC2020', '❤️❤️': '#BE1931', '❤️❤️❤️': '#BE1931',
-            '❤️❤️❤️❤️': '#BE1931', '❤️❤️❤️❤️❤️': '#BE1931', '❤️❤️❤️❤️❤️❤️': '#BE1931',
-            '❤️❤️❤️❤️❤️❤️❤️': '#BE1931', '❤️❤️❤️❤️❤️❤️❤️❤️': '#BE1931',
-            '❤️❤️❤️❤️❤️❤️❤️❤️❤️': '#BE1931', '❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️': '#BE1931',
-            '👻': '#67544E', '👻👻': '#67544E', '👻👻👻': '#67544E',
-            '👻👻👻👻': '#67544E', '👻👻👻👻👻': '#67544E'}
-        self.guild = guild
-        self.stackable = {'👺', '🛡️', '☣️', '☢️', '🔫', '🔪', '🍅'}
-        self.items = {
-            '👺': Item('#000000',
-                '⭐ Causes transitory intermittent blindness\n⚠️ **Removes**: ❤️',
-                'mask', 0, 4, Permissions(read_message_history=False, read_messages=False)),
-            '🪬': Item('#917EB3', '⭐ Enables one to enter the church',
-                'idol', 1000, '♾️'),
-            '🛡️': Item('#006769',
-                '⭐ Shields wearer from an attack\n⚠️ **Extra**: Blocks imprisonment',
-                'shield', 250, 4),
-            '☣️': Item('#78443E',
-                '⭐ Temporarily removes -1 points per second\n⚠️ **Removes**: ❤️',
-                'virus', -10, 4),
-            '☢️': Item('#FAE500',
-                '⭐ Temporarily removes -1 points per second\n⚠️ **Removes**: ❤️',
-                'waste', -10, 4),
-            '🔫': Item('#808080', '⭐ **Removes**: ❤️❤️\n⚠️ **Extra**: May cause bleeding 🩸⏱️',
-                'gun', 250, 4),
-            '🔪': Item('#401B1B', '⭐ **Removes**: ❤️\n⚠️ **Extra**: May cause bleeding 🩸⏱️',
-                'knife', 250, 2),
-            '🍅': Item('#401B1B', '⭐ **Removes**: 250 Points\n⚠️ **Extra**: Mortification',
-                'tomato', -250, 1),
-            '📜': Item('#FFFFC5', '⭐ Enables reader to change their name', 'scroll', 100, 4,
-                Permissions(change_nickname=True)),
-            '💎': Item('#809CA7', '⭐ Enables holder to react', 'charm', 75, 3,
-                Permissions(add_reactions=True)),
-            '🔮': Item('#D580FF',
-                '⭐ Enables caster to attach files, connect to voice channels, embed links and use external emojis and stickers',
-                'wand', 50, 2, Permissions(attach_files=True, connect=True, embed_links=True,
-                    use_external_emojis=True, use_external_stickers=True)),
-            '🪨': Item('#7DA27E', '⭐ Enables holder to post', 'rune', 25, 1,
-                Permissions(send_messages=True, send_messages_in_threads=True,
-                    create_polls=True, create_public_threads=True)),
-            '🕹️': Item('#4169E1',
-                f'⭐ Enables user to control {self.guild.me.mention} with /',
-                'remote', 25, 1, Permissions(use_application_commands=True))
-        }
         self.paint = Paint()
+        self.guild = guild
+        self.admin = {'🐈': Item('#FFFF00', 'neko', 9999, '♾️',
+            '🌟 Imbues owner with God-like prowess 🦄🌈✨', Permissions(administrator=True))}
+        self.coins = {'🪙🪙🪙🪙🪙': 'coin5', '🪙🪙🪙🪙': 'coin4', '🪙🪙🪙': 'coin3', '🪙🪙': 'coin2', '🪙': 'coin1'}
+        self.lives = {'❤️': 'heart1', '❤️❤️': 'heart2', '❤️❤️❤️': 'heart3', '❤️❤️❤️❤️': 'heart4',
+            '❤️❤️❤️❤️❤️': 'heart5', '❤️❤️❤️❤️❤️❤️': 'heart6', '❤️❤️❤️❤️❤️❤️❤️': 'heart7',
+            '❤️❤️❤️❤️❤️❤️❤️❤️': 'heart8', '❤️❤️❤️❤️❤️❤️❤️❤️❤️': 'heart9',
+            '❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️': 'heart10', '💀': 'skull', '👻': 'ghost1',
+            '👻👻': 'ghost2', '👻👻👻': 'ghost3'}
+        self.items = {
+            '🎖️': Item('#7851A9', 'medal', 1000, '♾️',
+                '⭐ Identifies top achievers\n⚠️ **Extra**: Acts as a shield when critical'),
+            '⭐': Item('#D4AF37', 'star', 500, '♾️', '⭐ Means you did a good job!'),
+            '🪬': Item('#917EB3', 'idol', 1000, '♾️', '⭐ Enables one to enter the church'),
+            '👺': Item('#000000', 'mask', 0, 4,
+                '⭐ Causes transitory intermittent blindness\n⚠️ **Removes**: ❤️'),
+            '🛡️': Item('#006769', 'shield', 250, 4,
+                '⭐ Shields wearer from an attack\n⚠️ **Extra**: Blocks imprisonment'),
+            '☣️': Item('#78443E', 'virus', -10, 4,
+                '⭐ Temporarily removes -10 points per second\n⚠️ **Removes**: ❤️'),
+            '☢️': Item('#FAE500', 'waste', -10, 4,
+                '⭐ Temporarily removes -10 points per second\n⚠️ **Removes**: ❤️'),
+            '🔫': Item('#808080', 'gun', 500, 4,
+                '⭐ **Removes**: ❤️❤️\n⚠️ **Extra**: May cause bleeding 🩸⏱️'),
+            '🔪': Item('#401B1B', 'knife', 250, 2,
+                '⭐ **Removes**: ❤️\n⚠️ **Extra**: May cause bleeding 🩸⏱️'),
+            '🍅': Item('#401B1B', 'tomato', -250, 1,
+                '⭐ **Removes**: 250 Points\n⚠️ **Extra**: Mortification'),
+        }
+        self.perm_single_items = {
+            '📜': Item('#FFFFC5', 'scroll', 100, 4, '⭐ Enables reader to change their name',
+                self._mog),
+            '🔮': Item('#D580FF', 'wand', 50, 2,
+                ('⭐ Enables caster to attach files, connect to voice channels, embed links '
+                 'and use external emojis and stickers'), self._share),
+            '💎': Item('#809CA7', 'charm', 75, 3, '⭐ Enables wearer to react', self._react),
+            '🪨': Item('#7DA27E', 'rune', 25, 1, '⭐ Enables holder to post', self._post),
+            '🕹️': Item('#4169E1', 'remote', 25, 1,
+                f'⭐ Enables user to control {self.guild.me.mention} with /', self._app)}
+        self.perm_items = {
+            '📜🔮💎🪨🕹️': Item('#DFFF00', 'scrollwandcharmruneremote', 0, 0, '', self._base),
+            '🔮💎🪨🕹️': Item('#7A1F3D', 'wandcharmruneremote', 0, 0, '',
+                Permissions(self._base.value & ~self._mog.value)),
+            '📜🔮🪨🕹️': Item('#FFE135', 'scrollwandruneremote', 0, 0, '',
+                Permissions(self._base.value & ~self._react.value)),
+            '📜💎🪨🕹️': Item('#40E0D0', 'scrollcharmruneremote', 0, 0, '',
+                Permissions(self._base.value & ~self._share.value)),
+            '📜🔮💎🕹️': Item('#FA8072', 'scrollwandcharmremote', 0, 0, '',
+                Permissions(self._base.value & ~self._post.value)),
+            '📜🔮💎🪨': Item('#737C3E', 'scrollwandcharmrune', 0, 0, '',
+                Permissions(self._base.value & ~self._app.value)),
+            '🔮💎🕹️': Item('#065535', 'wandcharmremote', 0, 0, '',
+                Permissions(self._app.value | self._react.value | self._share.value)),
+            '🔮🪨🕹️': Item('#00FFFF', 'wandruneremote', 0, 0, '',
+                Permissions(self._app.value | self._post.value | self._share.value)),
+            '📜💎🕹️': Item('#CCCCFF', 'scrollcharmremote', 0, 0, '',
+                Permissions(self._app.value | self._mog.value | self._react.value)),
+            '📜🔮🕹️': Item('#CD7F32', 'scrollwandremote', 0, 0, '',
+                Permissions(self._app.value | self._mog.value | self._share.value)),
+            '📜🪨🕹️': Item('#E97451', 'scrollruneremote', 0, 0, '',
+                Permissions(self._app.value | self._mog.value | self._post.value)),
+            '💎🪨🕹️': Item('#954535', 'charmruneremote', 0, 0, '',
+                Permissions(self._app.value | self._post.value | self._react.value)),
+            '📜💎🪨': Item('#9A2A2A', 'scrollcharmrune', 0, 0, '',
+                Permissions(self._mog.value | self._post.value | self._react.value)),
+            '📜🔮🪨': Item('#CC7722', 'scrollwandrune', 0, 0, '',
+                Permissions(self._mog.value | self._post.value | self._share.value)),
+            '🔮💎🪨': Item('#A0522D', 'wandcharmrune', 0, 0, '',
+                Permissions(self._post.value | self._react.value | self._share.value)),
+            '📜🔮💎': Item('#8A9A5B', 'scrollwandcharm', 0, 0, '',
+                Permissions(self._mog.value | self._react.value | self._share.value)),
+            '📜💎': Item('#7FFFD4', 'scrollcharm', 0, 0, '',
+                Permissions(self._mog.value | self._react.value)),
+            '🔮💎': Item('#008080', 'wandcharm', 0, 0, '',
+                Permissions(self._react.value | self._share.value)),
+            '📜🔮': Item('#FBCEB1', 'scrollwand', 0, 0, '',
+                Permissions(self._mog.value | self._share.value)),
+            '🪨🕹️': Item('#DA70D6', 'runeremote', 0, 0, '',
+                Permissions(self._app.value | self._post.value)),
+            '💎🪨': Item('#AA98A9', 'charmrune', 0, 0, '',
+                Permissions(self._react.value | self._post.value)),
+            '🔮🪨': Item('#FFBF00', 'wandrune', 0, 0, '',
+                Permissions(self._post.value | self._share.value)),
+            '📜🪨': Item('#FDDA0D', 'scrollrune', 0, 0, '',
+                Permissions(self._mog.value | self._post.value)),
+            '💎🕹️': Item('#B4C424', 'charmremote', 0, 0, '',
+                Permissions(self._app.value | self._react.value)),
+            '🔮🕹️': Item('#FCF55F', 'wandremote', 0, 0, '',
+                Permissions(self._app.value | self._share.value)),
+            '📜🕹️': Item('#EDEADE', 'scrollremote', 0, 0, '',
+                Permissions(self._app.value | self._mog.value))
+        }
         self.prime = {
             'Priest': '#67080B',
             'Scientist': '#DFFF00',
@@ -92,9 +132,19 @@ class Game:
         }
         self.roles = {}
         self.stats = Stats()
-        self._post = PermissionOverwrite(view_channel=True, send_messages=True,
-            add_reactions=True, create_polls=True, create_public_threads=True,
-            create_private_threads=True)
+        self._app = Permissions(use_application_commands=True)
+        self._base = Permissions(add_reactions=True, attach_files=True, change_nickname=True,
+            connect=True, create_polls=True, create_public_threads=True, embed_links=True,
+            send_messages=True, send_messages_in_threads=True, use_application_commands=True,
+            use_external_emojis=True, use_external_stickers=True)
+        self._mog = Permissions(change_nickname=True)
+        self._post = Permissions(create_polls=True, create_public_threads=True,
+            send_messages=True, send_messages_in_threads=True)
+        self._post_and_view = PermissionOverwrite(view_channel=True, send_messages=True,
+            add_reactions=True, create_polls=True, create_public_threads=True)
+        self._react = Permissions(add_reactions=True)
+        self._share = Permissions(attach_files=True, connect=True, embed_links=True,
+            use_external_emojis=True, use_external_stickers=True)
         self._post_limited = PermissionOverwrite(view_channel=True, send_messages=True)
         self._view = PermissionOverwrite(view_channel=True)
         self._view_only = {self.guild.default_role: PermissionOverwrite(
@@ -112,6 +162,7 @@ class Game:
         await self.create_bulletin()
         await self.create_outskirts()
         await self.create_rules()
+        await self.create_inventory()
         await self.create_main_channels()
         await self.create_hospital()
         await self.create_prison()
@@ -127,20 +178,18 @@ class Game:
             await self.create_role(str(i), f"#{Color.random().value:06X}", alias='Level')
         for name, item in self.admin.items():
             await self.create_role(name, item.color, hoist=True, perms=item.perms)
-        for name, item in self.life.items():
-            await self.create_role(name, item.color)
-        for name, hex_code in self.life_roles.items():
-            await self.create_role(name, hex_code)
-        for name, item in self.coin.items():
-            await self.create_role(name, item.color)
-        for name, hex_code in self.coins.items():
-            await self.create_role(name, hex_code)
+        for name in self.lives:
+            await self.create_role(name, '#BE1931')
+        for name in self.coins:
+            await self.create_role(name, '#D4AF37')
         for name, item in self.items.items():
+            # Allows stacking 3 of the same item.
+            for i in range(1, 4):
+                await self.create_role(name * i, item.color)
+        for name, item in self.perm_items.items():
             await self.create_role(name, item.color, perms=item.perms)
-            if name in self.stackable:
-                # Allows stacking 3 of the same item.
-                for i in range(2, 4):
-                    await self.create_role(name * i, item.color, perms=item.perms)
+        for name, item in self.perm_single_items.items():
+            await self.create_role(name, item.color, perms=item.perms)
         for name, hex_code in self.prime.items():
             await self.create_role(name, hex_code, hoist=True)
         return None
@@ -178,13 +227,17 @@ class Game:
         market_perms = self._view_only | self._main_perms() | {self.roles['Outsider']: self._view}
         channel = await bulletin.create_text_channel('🌳🏬-market', overwrites=market_perms)
         for name, item in self.admin.items():
-            await self.send_img(self.roles[name], channel, item.filename,
+            await self.send_img(self.roles[name], channel, item.name,
                 f"{item.desc}\n🅿️ **Points**: {item.points}\n🪙 **Coins**: {item.price}",
                 f"God-like Neko {name}")
         for name, item in self.items.items():
-            await self.send_img(self.roles[name], channel, item.filename,
+            await self.send_img(self.roles[name], channel, f"{item.name}1",
                 f"{item.desc}\n🅿️ **Points**: {item.points}\n🪙 **Coins**: {item.price}",
-                f"{item.filename.title()} {name}")
+                f"{item.name.title()} {name}")
+        for name, item in self.perm_single_items.items():
+            await self.send_img(self.roles[name], channel, item.name,
+                f"{item.desc}\n🅿️ **Points**: {item.points}\n🪙 **Coins**: {item.price}",
+                f"{item.name.title()} {name}")
         return None
 
     async def create_color(self, context: Context, name: str, hex_code) -> str:
@@ -250,14 +303,42 @@ class Game:
         await category.create_text_channel(
             name='🩻padded-cell📋🧑🏻‍🔬',
             overwrites=self._view_only | hospital_perms | {
-                self.roles['Scientist']: self._post,
+                self.roles['Scientist']: self._post_and_view,
                 self.roles['Psychotic']: self._post_limited})
         await category.create_text_channel(
             name='🔒doctors-office💉',
             overwrites=self._view_only | hospital_perms | {
-                self.roles['Scientist']: self._post, self.roles['Nurse']: self._post})
+                self.roles['Scientist']: self._post_and_view, self.roles['Nurse']: self._post_and_view})
         await category.create_voice_channel(
             name='🛋️visitation💔🌡️💀', overwrites=hospital_perms | self._main_perms())
+        return None
+
+    async def create_inventory(self) -> None:
+        category = await self.guild.create_category('🎒👛Designer Bag💼💄👝🍬')
+        for name, filename in self.lives.items():
+            channel = await category.create_text_channel(name=name, overwrites=self._view_only | {
+                self.roles[name]: self._view})
+            await self.send_img(self.roles[name], channel, filename, self.roles[name].mention, '')
+        for name, filename in self.coins.items():
+            channel = await category.create_text_channel(name=name, overwrites=self._view_only | {
+                self.roles[name]: self._view})
+            await self.send_img(self.roles[name], channel, filename, self.roles[name].mention, '')
+        for name, item in self.perm_single_items.items():
+            channel = await category.create_text_channel(name=name, overwrites=self._view_only | {
+                self.roles[name]: self._view})
+            await self.send_img(self.roles[name], channel, item.name, self.roles[name].mention, '')
+        for name, item in self.perm_items.items():
+            channel = await category.create_text_channel(name=name, overwrites=self._view_only | {
+                self.roles[name]: self._view})
+            await self.send_img(self.roles[name], channel, item.name, self.roles[name].mention, '')
+        category = await self.guild.create_category('🧰⚙️Paraphernalia📕🛠️🚧💥')
+        for name, item in self.items.items():
+            for i in range(1, 4):
+                role_name = name * i
+                channel = await category.create_text_channel(name=role_name, overwrites=self._view_only | {
+                    self.roles[role_name]: self._view})
+                await self.send_img(
+                    self.roles[role_name], channel, f"{item.name}{i}", self.roles[role_name].mention, '')
         return None
 
     async def create_main_channels(self) -> None:
@@ -293,11 +374,11 @@ class Game:
         await self.send_img(self.roles['Guard'], cafeteria, 'prisonfood', '', '')
         await category.create_text_channel(
             name='🕳️the-hole🫷🏿😫🫸🏿', overwrites=self._view_only | prison_perms | {
-                self.roles['Solitary']: self._post_limited, self.roles['Guard']: self._post,
-                self.roles['Priest']: self._post})
+                self.roles['Solitary']: self._post_limited, self.roles['Guard']: self._post_and_view,
+                self.roles['Priest']: self._post_and_view})
         await category.create_text_channel(
             name='🔒wardens-office🗝️', overwrites=self._view_only | prison_perms | {
-                self.roles['Guard']: self._post})
+                self.roles['Guard']: self._post_and_view})
         await category.create_voice_channel('🪑visitation💂🏻⛓️😡', overwrites=self._main_perms())
         return None
 
@@ -331,7 +412,7 @@ class Game:
             roles.insert(index, new_role)
             await self.guild.edit_role_positions(
                 positions={r: i for i, r in enumerate(roles)})
-        await sleep(2)
+        await sleep(5)
         return new_role
 
     async def create_rules(self) -> None:
@@ -424,7 +505,7 @@ class Game:
                 break
             elif role.name.startswith('👻'):
                 count = role.name.count('👻')
-                if count == 5:
+                if count == 3:
                     await member.kick(reason='**Vigor**: -6')
                     return None
                 new_role = self.roles['👻' * (count + 1)]

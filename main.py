@@ -167,8 +167,7 @@ class GameBot(Base):
         resp = await self.gamer.initialize()
         for member in context.guild.members:
             await member.add_roles(*[self.gamer.roles['Level'][0], self.gamer.roles['💀'],
-                self.gamer.roles['💎'], self.gamer.roles['🪨'], self.gamer.roles['🕹️'],
-                self.gamer.roles['Outsider']])
+                self.gamer.roles['💎🪨🕹️'], self.gamer.roles['TOWG']])
         await self.hybrid_reply(context, resp)
         return None
 
