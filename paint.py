@@ -47,12 +47,6 @@ class Paint:
     def is_hexcode(str_: str) -> bool:
         return fullmatch(r'#([0-9a-fA-F]{6})', str_)
 
-    def pop(self) -> int:
-        for paint_id in self._paint:
-            break
-        self.delete(paint_id)
-        return paint_id
-
     @staticmethod
     def mix(*hex_codes: str) -> str:
         r, g, b = 0, 0, 0
