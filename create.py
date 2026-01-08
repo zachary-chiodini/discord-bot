@@ -272,7 +272,8 @@ class Create:
                     name=role_name, overwrites=self.view_only_channel | {
                         self.roles[role_name]: self.view})
                 await self.send_img(
-                    self.roles[role_name], channel, f"{item.name}{i}", '', '')
+                    self.roles[role_name], channel, f"{item.name}{i}",
+                    self.roles[role_name].mention, '')
         return None
 
     async def main_channels(self) -> None:

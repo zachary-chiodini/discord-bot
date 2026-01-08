@@ -1,5 +1,5 @@
-from discord import (app_commands, Guild, Intents, Interaction,
-    Member, Message, Object, Permissions, RawReactionActionEvent, Role)
+from discord import (app_commands, Guild, Intents, Interaction, Member, Message, Object,
+    Permissions, RawReactionActionEvent, Role)
 from discord.ext import commands
 
 from game import Game
@@ -82,7 +82,7 @@ class GameBot(Base):
             return None
         await interaction.response.defer()
         resp = await self.gamer.create.color(interaction, color_name.title(), color_hex)
-        await interaction.response.send_message(resp)
+        await interaction.followup.send(resp)
         return None
 
     @app_commands.describe(color1='First color to mix', color2='Second color to mix')
@@ -103,7 +103,7 @@ class GameBot(Base):
         await interaction.response.defer()
         new_name = f"{color1.name} {color2.name}"
         resp = await self.gamer.create.color(interaction, new_name, new_code)
-        await interaction.response.send_message(resp)
+        await interaction.followup.send(resp)
         return None
 
     @app_commands.describe(player='Player to color', color_role='Selected color')
@@ -134,18 +134,26 @@ class GameBot(Base):
         await interaction.response.send_message(resp)
         return None
 
-    master = app_commands.Group(name='master', description='Administrator commands',
+    delete = app_commands.Group(name='delete', description='Administrator commands',
         default_permissions=Permissions(administrator=True))
 
-    @master.command()
-    async def clear(self, interaction: Interaction, entity: str) -> None:
-        if entity.lower() == 'channels':
-            await interaction.response.defer()
-            for i, channel in enumerate(interaction.guild.channels):
-                if channel.id != interaction.channel.id:
-                    await channel.delete()
-            await interaction.followup.send(f"{i} channels deleted.")
+    @delete.command()
+    async def channels(self, interaction: Interaction) -> None:
+        await interaction.response.defer()
+        for i, channel in enumerate(interaction.guild.channels):
+            if channel.id != interaction.channel.id:
+                await channel.delete()
+        await interaction.followup.send(f"Deleted {i} channels.")
         return None
+
+    @delete.command()
+    async def role(self, interaction: Interaction, role: Role) -> None:
+        await role.delete()
+        await interaction.followup.send(f"{role.mention} deleted.")
+        return None
+
+    master = app_commands.Group(name='master', description='Administrator commands',
+        default_permissions=Permissions(administrator=True))
 
     @master.command()
     async def create(self, interaction: Interaction, item: Role) -> None:
@@ -155,10 +163,6 @@ class GameBot(Base):
     async def initialize(self, interaction: Interaction) -> None:
         await interaction.response.defer()
         resp = await self.gamer.create.all()
-        for member in interaction.guild.members:
-            if not member.bot:
-                await member.add_roles(*[self.gamer.roles['Level'][0], self.gamer.roles['💀'],
-                    self.gamer.roles['🔮💎🪨🕹️'], self.gamer.roles['TOWG']])
         await interaction.followup.send(resp)
         return None
 
