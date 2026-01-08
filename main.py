@@ -130,17 +130,28 @@ class GameBot(Base):
         default_permissions=Permissions(administrator=True))
 
     @master.command()
+    async def clear(self, interaction: Interaction, entity: str) -> None:
+        if entity.lower() == 'channels':
+            await interaction.response.defer()
+            for i, channel in enumerate(interaction.guild.channels):
+                if channel.id != interaction.channel.id:
+                    await channel.delete()
+            await interaction.followup.send(f"{i} channels deleted.")
+        return None
+
+    @master.command()
     async def initialize(self, interaction: Interaction) -> None:
         await interaction.response.defer()
         resp = await self.gamer.create.all()
         for member in interaction.guild.members:
             await member.add_roles(*[self.gamer.roles['Level'][0], self.gamer.roles['💀'],
                 self.gamer.roles['🔮💎🪨🕹️'], self.gamer.roles['TOWG']])
-        await interaction.response.send_message(resp)
+        await interaction.followup.send(resp)
         return None
 
     @master.command()
     async def reset(self, interaction: Interaction) -> None:
+        interaction.response.defer()
         resp = await self.gamer.reset()
         await interaction.response.send_message(resp)
         return None

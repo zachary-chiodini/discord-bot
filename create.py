@@ -66,7 +66,8 @@ class Create:
         self.post = Permissions(create_polls=True, create_public_threads=True,
             send_messages=True, send_messages_in_threads=True)
         self.post_and_view = PermissionOverwrite(view_channel=True, send_messages=True,
-            add_reactions=True, create_polls=True, create_public_threads=True)
+            add_reactions=True, create_polls=True, create_public_threads=True,
+            send_messages_in_threads=True)
         self.react = Permissions(add_reactions=True)
         self.share = Permissions(attach_files=True, connect=True, embed_links=True,
             use_external_emojis=True, use_external_stickers=True)
@@ -194,7 +195,7 @@ class Create:
         note = (f"⭐ Your're a {self.roles['Ghost'].mention} 🕊️🪦\n"
             f"⭐ Speak to a {self.roles['Ghost'].mention} ☝🤓")
         await self.alert_channel(
-            bulletin, 'ghost', note, self.roles['Ghost'], '👻-ghost⚠️')
+            bulletin, 'death', note, self.roles['Ghost'], '👻-ghost⚠️')
         # Market Channel
         channel = await bulletin.create_text_channel('🌳🏬-market',
             overwrites=self.view_only_channel | self._main_perms() | {
@@ -229,16 +230,16 @@ class Create:
         await category.create_text_channel(
             name='👥building-center💊', overwrites=hospital_perms)
         cafeteria = await category.create_text_channel(
-            name='🍽️cafeteria🍊🥪🧃', overwrites=self.view_only | hospital_perms)
+            name='🍽️cafeteria🍊🥪🧃', overwrites=self.view_only_channel | hospital_perms)
         await self.send_img(self.roles['Nurse'], cafeteria, 'sloppyjoes', '', '')
         await category.create_text_channel(
             name='🩻padded-cell📋🧑🏻‍🔬',
-            overwrites=self.view_only | hospital_perms | {
+            overwrites=self.view_only_channel | hospital_perms | {
                 self.roles['Scientist']: self.post_and_view,
                 self.roles['Psychotic']: self.post_limited})
         await category.create_text_channel(
             name='🔒doctors-office💉',
-            overwrites=self.view_only | hospital_perms | {
+            overwrites=self.view_only_channel | hospital_perms | {
                 self.roles['Scientist']: self.post_and_view, self.roles['Nurse']: self.post_and_view})
         await category.create_voice_channel(
             name='🛋️visitation💔🌡️💀', overwrites=hospital_perms | self._main_perms())
@@ -247,27 +248,29 @@ class Create:
     async def inventory(self) -> str:
         category = await self.guild.create_category('🎒👛Designer Bag💼💄👝🍬')
         for name, filename in self.lives.items():
-            channel = await category.create_text_channel(name=name, overwrites=self.view_only | {
-                self.roles[name]: self.view})
-            await self.send_img(self.roles[name], channel, filename, self.roles[name].mention, '')
+            channel = await category.create_text_channel(
+                name=name, overwrites=self.view_only_channel | {self.roles[name]: self.view})
+            await self.send_img(
+                self.roles[name], channel, filename, self.roles[name].mention, '')
         for name, filename in self.coins.items():
-            channel = await category.create_text_channel(name=name, overwrites=self.view_only | {
-                self.roles[name]: self.view})
+            channel = await category.create_text_channel(
+                name=name, overwrites=self.view_only_channel | {self.roles[name]: self.view})
             await self.send_img(self.roles[name], channel, filename, self.roles[name].mention, '')
         for name, item in self.perm_single_items.items():
-            channel = await category.create_text_channel(name=name, overwrites=self.view_only | {
-                self.roles[name]: self.view})
+            channel = await category.create_text_channel(
+                name=name, overwrites=self.view_only_channel | {self.roles[name]: self.view})
             await self.send_img(self.roles[name], channel, item.name, self.roles[name].mention, '')
         for name, item in self.perm_items.items():
-            channel = await category.create_text_channel(name=name, overwrites=self.view_only | {
-                self.roles[name]: self.view})
+            channel = await category.create_text_channel(
+                name=name, overwrites=self.view_only_channel | {self.roles[name]: self.view})
             await self.send_img(self.roles[name], channel, item.name, self.roles[name].mention, '')
         category = await self.guild.create_category('🧰⚙️Paraphernalia📕🛠️🚧💥')
         for name, item in self.items.items():
             for i in range(1, 4):
                 role_name = name * i
-                channel = await category.create_text_channel(name=role_name, overwrites=self.view_only | {
-                    self.roles[role_name]: self.view})
+                channel = await category.create_text_channel(
+                    name=role_name, overwrites=self.view_only_channel | {
+                        self.roles[role_name]: self.view})
                 await self.send_img(
                     self.roles[role_name], channel, f"{item.name}{i}", '', '')
         return 'Inventory created.'
@@ -301,14 +304,14 @@ class Create:
         await category.create_text_channel(
             name='👥the-yard🏋🏿👊🏿🤬', overwrites=prison_perms)
         cafeteria = await category.create_text_channel(
-            name='🍽️chow-hall🫓🥣🥔', overwrites=self.view_only | prison_perms)
+            name='🍽️chow-hall🫓🥣🥔', overwrites=self.view_only_channel | prison_perms)
         await self.send_img(self.roles['Guard'], cafeteria, 'prisonfood', '', '')
         await category.create_text_channel(
-            name='🕳️the-hole🫷🏿😫🫸🏿', overwrites=self.view_only | prison_perms | {
+            name='🕳️the-hole🫷🏿😫🫸🏿', overwrites=self.view_only_channel | prison_perms | {
                 self.roles['Solitary']: self.post_limited, self.roles['Guard']: self.post_and_view,
                 self.roles['Priest']: self.post_and_view})
         await category.create_text_channel(
-            name='🔒wardens-office🗝️', overwrites=self.view_only | prison_perms | {
+            name='🔒wardens-office🗝️', overwrites=self.view_only_channel | prison_perms | {
                 self.roles['Guard']: self.post_and_view})
         await category.create_voice_channel('🪑visitation💂🏻⛓️😡', overwrites=self._main_perms())
         return 'Prison created.'
@@ -358,7 +361,7 @@ class Create:
         return new_role
 
     async def rules(self) -> str:
-        rules_perms = self.view_only | self._main_perms() | {self.roles['Guard']: self.post}
+        rules_perms = self.view_only_channel | self._main_perms() | {self.roles['Guard']: self.post_and_view}
         category = await self.guild.create_category('🛡️⚔️COMMANDMENTS⚔️🛡️', overwrites=rules_perms)
         for rule in ['no-anime', 'no-bullying', 'no-gore', 'no-nudes']:
             await category.create_text_channel(name=f"⛔{rule}🗃️")
