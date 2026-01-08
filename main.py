@@ -1,9 +1,6 @@
-from typing import Union
-
-from discord import (app_commands, Guild, Intents,
-    Member, Message, Object, RawReactionActionEvent, Role)
+from discord import (app_commands, Guild, Intents, Interaction,
+    Member, Message, Object, Permissions, RawReactionActionEvent, Role)
 from discord.ext import commands
-from discord.ext.commands import Context
 
 from game import Game
 
@@ -16,17 +13,6 @@ class Base(commands.Cog):
         self.bot = bot
         self.gamer = Game(guild)
         self.guild = guild
-
-    async def cog_before_invoke(self, context: Context) -> None:
-        if context.interaction and not context.interaction.response.is_done():
-            await context.interaction.response.defer()
-        return None
-
-    @staticmethod
-    def get_author(context: Context) -> Member:
-        if context.interaction:
-            return context.interaction.user
-        return context.author
 
     @commands.Cog.listener()
     async def on_member_join(self, member: Member) -> None:
@@ -65,116 +51,98 @@ class Base(commands.Cog):
         await self.gamer.decrease_reacts(self.guild.get_member(payload.user_id))
         return None
 
-    @staticmethod
-    async def hybrid_fail(context: Context, message: str) -> None:
-        if context.interaction:
-            if context.interaction.response.is_done():
-                await context.interaction.followup.send(message)
-            await context.interaction.response.send_message(message)
-            raise app_commands.CheckFailure()
-        await context.send(message)
-        raise commands.CheckFailure()
-
-    @staticmethod
-    async def hybrid_reply(context: Context, content: str) -> Union[Message, None]:
-        if context.interaction:
-            if context.interaction.response.is_done():
-                return await context.interaction.followup.send(content)
-            return await context.interaction.response.send_message(content)
-        return await context.send(content)
-
 
 class GameBot(Base):
 
     ADMIN_USER_ID = 1380323054479085648
     ADMIN_ROLE_ID = 0
 
-    @commands.hybrid_group()
-    async def paint(self, context: Context) -> None:
-        pass
+    paint = app_commands.Group(name='paint', description='Commands for managing colors')
 
-    @paint.command()
-    async def make(self, context: Context, color_name: str, color_hex: str) -> None:
+    @app_commands.describe(
+        color_name='Name of color to create', color_hex='Hex code in the form #RRGGBB')
+    @paint.command(name= 'make', description='Create a new color.')
+    async def make(self, interaction: Interaction, color_name: str, color_hex: str) -> None:
         paint_id = self.gamer.create.paint.get(color_hex)
         if paint_id:
-            role = context.guild.get_role(paint_id)
-            resp = f"Color already exists: {role.mention}."
-            await self.show(context, role)
-        elif not self.gamer.create.paint.is_hexcode(color_hex):
-            resp = f"Color must be hex code in the form #RRGGBB."
-        else:
-            resp = await self.gamer.create.color(context, color_name.title(), color_hex)
-        await self.hybrid_reply(context, resp)
+            role = interaction.guild.get_role(paint_id)
+            await interaction.response.send_message(f"Color already exists: {role.mention}.")
+            await self.show(interaction, role)
+            return None
+        if not self.gamer.create.paint.is_hexcode(color_hex):
+            await interaction.response.send_message(f"Color must be hex code in the form #RRGGBB.")
+            return None
+        await interaction.response.defer()
+        resp = await self.gamer.create.color(interaction, color_name.title(), color_hex)
+        await interaction.response.send_message(resp)
         return None
 
-    @paint.command()
-    async def mix(self, context: Context, color1: Role, color2: Role) -> None:
+    @app_commands.describe(color1='First color to mix', color2='Second color to mix')
+    @paint.command(name='mix', description='Mix two colors and create a new one')
+    async def mix(self, interaction: Interaction, color1: Role, color2: Role) -> None:
         for role in [color1, color2]:
             if not self.gamer.create.paint.id_exists(role.id):
-                resp = f"{role.mention} is not a color."
-                break
-        else:
-            new_code = self.gamer.create.paint.mix(self.gamer.create.paint.get(color1.id),
-                self.gamer.create.paint.get(color2.id))
-            paint_id = self.gamer.create.paint.get(new_code)
-            if paint_id:
-                role = context.guild.get_role(paint_id)
-                resp = f"Color already exists: {role.mention}."
-                await self.show(context, role)
-            else:
-                new_name = f"{color1.name} {color2.name}"
-                resp = await self.gamer.create.color(context, new_name, new_code)
-        await self.hybrid_reply(context, resp)
+                await interaction.response.send_message(f"{role.mention} is not a color.")
+                return None
+        new_code = self.gamer.create.paint.mix(
+            self.gamer.create.paint.get(color1.id), self.gamer.create.paint.get(color2.id))
+        paint_id = self.gamer.create.paint.get(new_code)
+        if paint_id:
+            role = interaction.guild.get_role(paint_id)
+            await interaction.response.send_message(f"Color already exists: {role.mention}.")
+            await self.show(interaction, role)
+            return None
+        await interaction.response.defer()
+        new_name = f"{color1.name} {color2.name}"
+        resp = await self.gamer.create.color(interaction, new_name, new_code)
+        await interaction.response.send_message(resp)
         return None
 
-    @paint.command()
-    async def player(self, context: Context, player: Member, color_role: Role) -> None:
+    @app_commands.describe(player='Player to color', color_role='Selected color')
+    @paint.command(name='player', description='Color yourself or another player')
+    async def player(self, interaction: Interaction, player: Member, color_role: Role) -> None:
         if not self.gamer.create.paint.id_exists(color_role.id):
-            resp = f"Color not found: {color_role.mention}."
-        else:
-            await player.remove_roles(
-                *[role for role in player.roles if self.gamer.create.paint.id_exists(role.id)])
-            await player.add_roles(color_role)
-            author = self.get_author(context)
-            resp = f"{author.mention} colored {player.mention} {color_role.mention}."
-        await self.hybrid_reply(context, resp)
+            await interaction.response.send_message(f"Color not found: {color_role.mention}.")
+            return None
+        await player.remove_roles(
+            *[role for role in player.roles if self.gamer.create.paint.id_exists(role.id)])
+        await player.add_roles(color_role)
+        await interaction.response.send_message(
+            f"{interaction.user.mention} colored {player.mention} {color_role.mention}.")
         return None
 
-    @paint.command()
-    async def show(self, context: Context, color_role: Role) -> None:
-        if not self.gamer.paint.id_exists(color_role.id):
-            resp = f"Color not found: {color_role.mention}."
-        else:
-            filename = self.gamer.create.paint.get(color_role.id).lstrip('#')
-            await self.gamer.create.send_img(color_role, context.channel, filename, '', '')
-            resp = f"**Showing Color**: {color_role.mention}"
-        await self.hybrid_reply(context, resp)
+    @app_commands.describe(color_role='Selected color')
+    @paint.command(name='show', description='Look up a color')
+    async def show(self, interaction: Interaction, color_role: Role) -> None:
+        if not self.gamer.create.paint.id_exists(color_role.id):
+            await interaction.response.send_message(f"Color not found: {color_role.mention}.")
+            return None
+        filename = self.gamer.create.paint.get(color_role.id).lstrip('#')
+        await self.gamer.create.send_img(color_role, interaction.channel, filename, '', '')
+        resp = f"**Showing Color**: {color_role.mention}"
+        if interaction.response.is_done():
+            await interaction.followup.send(resp)
+            return None
+        await interaction.response.send_message(resp)
         return None
 
-    def is_master(self, context: Context) -> bool:
-        author = self.get_author(context)
-        return (author.id == self.ADMIN_USER_ID) or (author.get_role(self.ADMIN_ROLE_ID))
-
-    @app_commands.check(is_master)
-    @commands.check(is_master)
-    @commands.hybrid_group()
-    async def master(self, context: Context) -> None:
-        await self.hybrid_reply(context, f"Hi, {self.get_author(context).display_name}.")
-        return None
+    master = app_commands.Group(name='master', description='Administrator commands',
+        default_permissions=Permissions(administrator=True))
 
     @master.command()
-    async def initialize(self, context: Context) -> None:
+    async def initialize(self, interaction: Interaction) -> None:
+        await interaction.response.defer()
         resp = await self.gamer.create.all()
-        for member in context.guild.members:
+        for member in interaction.guild.members:
             await member.add_roles(*[self.gamer.roles['Level'][0], self.gamer.roles['💀'],
                 self.gamer.roles['🔮💎🪨🕹️'], self.gamer.roles['TOWG']])
-        await self.hybrid_reply(context, resp)
+        await interaction.response.send_message(resp)
         return None
 
     @master.command()
-    async def reset(self, context: Context) -> None:
+    async def reset(self, interaction: Interaction) -> None:
         resp = await self.gamer.reset()
-        await self.hybrid_reply(context, resp)
+        await interaction.response.send_message(resp)
         return None
 
 
