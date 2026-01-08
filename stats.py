@@ -66,14 +66,7 @@ class Stats:
         self._update(player)
         return None
 
-    def decrease_reacts(self, player_id: int) -> None:
-        self.increase_reacts(player_id, -1)
-        return None
-
-    def decrease_score(self, player_id: int, points: int) -> None:
-        self.increase_score(player_id, -points)
-
-    def delete_player(self, player_id: int) -> None:
+    def delete(self, player_id: int) -> None:
         del self._stats[player_id]
         with open(str(self.file), 'w') as f:
             for i, player in enumerate(self._stats.values()):
