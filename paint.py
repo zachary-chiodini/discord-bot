@@ -3,7 +3,6 @@ from pathlib import Path
 from re import fullmatch
 from typing import Union
 
-from discord import Member
 from PIL import Image
 
 
@@ -65,10 +64,6 @@ class Paint:
         g = round(g / len(hex_codes))
         b = round(b / len(hex_codes))
         return f"#{r:02X}{g:02X}{b:02X}"
-
-    async def remove_from(self, member: Member) -> None:
-        await member.remove_roles(*[role for role in member.roles if self.id_exists(role.id)])
-        return None
 
     def reset(self) -> None:
         if self.file.exists():

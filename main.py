@@ -31,8 +31,7 @@ class Base(commands.Cog):
     @commands.Cog.listener()
     async def on_member_join(self, member: Member) -> None:
         await member.add_roles(*[self.gamer.roles['Level'][0], self.gamer.roles['💀'],
-            self.gamer.roles['💎'], self.gamer.roles['🪨'], self.gamer.roles['🕹️'],
-            self.gamer.roles['Outsider']])
+            self.gamer.roles['💎🪨🕹️'], self.gamer.roles['Outsider']])
         await self.gamer.send_img(
             self.gamer.roles['Outsider'], member.guild.system_channel, 'meilanliu',
             f"Name: {member.name}\nAlias: {member.mention}", 'Outsider Identifed', member)
@@ -96,44 +95,45 @@ class GameBot(Base):
 
     @paint.command()
     async def make(self, context: Context, color_name: str, color_hex: str) -> None:
-        paint_id = self.gamer.paint.get(color_hex)
+        paint_id = self.gamer.create.paint.get(color_hex)
         if paint_id:
             role = context.guild.get_role(paint_id)
             resp = f"Color already exists: {role.mention}."
             await self.show(context, role)
-        elif not self.gamer.paint.is_hexcode(color_hex):
+        elif not self.gamer.create.paint.is_hexcode(color_hex):
             resp = f"Color must be hex code in the form #RRGGBB."
         else:
-            resp = await self.gamer.create_color(context, color_name.title(), color_hex)
+            resp = await self.gamer.create.color(context, color_name.title(), color_hex)
         await self.hybrid_reply(context, resp)
         return None
 
     @paint.command()
     async def mix(self, context: Context, color1: Role, color2: Role) -> None:
         for role in [color1, color2]:
-            if not self.gamer.paint.id_exists(role.id):
+            if not self.gamer.create.paint.id_exists(role.id):
                 resp = f"{role.mention} is not a color."
                 break
         else:
-            new_code = self.gamer.paint.mix(
-                self.gamer.paint.get(color1.id), self.gamer.paint.get(color2.id))
-            paint_id = self.gamer.paint.get(new_code)
+            new_code = self.gamer.create.paint.mix(self.gamer.create.paint.get(color1.id),
+                self.gamer.create.paint.get(color2.id))
+            paint_id = self.gamer.create.paint.get(new_code)
             if paint_id:
                 role = context.guild.get_role(paint_id)
                 resp = f"Color already exists: {role.mention}."
                 await self.show(context, role)
             else:
                 new_name = f"{color1.name} {color2.name}"
-                resp = await self.gamer.create_color(context, new_name, new_code)
+                resp = await self.gamer.create.color(context, new_name, new_code)
         await self.hybrid_reply(context, resp)
         return None
 
     @paint.command()
     async def player(self, context: Context, player: Member, color_role: Role) -> None:
-        if not self.gamer.paint.id_exists(color_role.id):
+        if not self.gamer.create.paint.id_exists(color_role.id):
             resp = f"Color not found: {color_role.mention}."
         else:
-            await self.gamer.paint.remove_from(player)
+            await player.remove_roles(
+                *[role for role in player.roles if self.gamer.create.paint.id_exists(role.id)])
             await player.add_roles(color_role)
             author = self.get_author(context)
             resp = f"{author.mention} colored {player.mention} {color_role.mention}."
@@ -145,8 +145,8 @@ class GameBot(Base):
         if not self.gamer.paint.id_exists(color_role.id):
             resp = f"Color not found: {color_role.mention}."
         else:
-            filename = self.gamer.paint.get(color_role.id).lstrip('#')
-            await self.gamer.send_img(color_role, context.channel, filename, '', '')
+            filename = self.gamer.create.paint.get(color_role.id).lstrip('#')
+            await self.gamer.create.send_img(color_role, context.channel, filename, '', '')
             resp = f"**Showing Color**: {color_role.mention}"
         await self.hybrid_reply(context, resp)
         return None
@@ -164,10 +164,10 @@ class GameBot(Base):
 
     @master.command()
     async def initialize(self, context: Context) -> None:
-        resp = await self.gamer.initialize()
+        resp = await self.gamer.create.all()
         for member in context.guild.members:
             await member.add_roles(*[self.gamer.roles['Level'][0], self.gamer.roles['💀'],
-                self.gamer.roles['💎🪨🕹️'], self.gamer.roles['TOWG']])
+                self.gamer.roles['🔮💎🪨🕹️'], self.gamer.roles['TOWG']])
         await self.hybrid_reply(context, resp)
         return None
 
