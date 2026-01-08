@@ -1,9 +1,8 @@
 from asyncio import sleep
 from typing import Dict, List, Optional, Union
 
-from discord import (CategoryChannel, Color, Embed, File, Guild, Member, Permissions,
+from discord import (CategoryChannel, Color, Embed, File, Interaction, Guild, Member, Permissions,
     PermissionOverwrite, Role, TextChannel)
-from discord.ext.commands import Context
 
 from paint import Paint
 
@@ -29,6 +28,7 @@ class Create:
             '🌟 Imbues owner with God-like prowess 🦄🌈✨', Permissions(administrator=True))}
         self.coins = {'🪙🪙🪙🪙🪙': 'coin5', '🪙🪙🪙🪙': 'coin4', '🪙🪙🪙': 'coin3',
             '🪙🪙': 'coin2', '🪙': 'coin1'}
+        self.extra = {'🪙': Item('', '', 250, ''), '❤️': Item('', '', 250, '')}
         self.guild = guild
         self.items = {
             '🎖️': Item('#7851A9', 'medal', 1000, '♾️',
@@ -167,7 +167,7 @@ class Create:
         await self._all_channels()
         return 'Game initialized.'
 
-    async def bulletin(self) -> str:
+    async def bulletin(self) -> None:
         bulletin = await self.guild.create_category('🧾📌BULLETIN BOARD🗺️🗡️⁉️')
         note = (f"⭐ You're an {self.roles['Outsider'].mention} 🌿🦥\n"
             f"⭐ Speak to a {self.roles['TOWG'].mention} citizen ☝🤓")
@@ -212,16 +212,16 @@ class Create:
             await self.send_img(self.roles[name], channel, item.name,
                 f"{item.desc}\n🅿️ **Points**: {item.points}\n🪙 **Coins**: {item.price}",
                 f"{item.name.title()} {name}")
-        return 'Bulletin created.'
+        return None
 
-    async def color(self, context: Context, name: str, hex_code) -> str:
+    async def color(self, interaction: Interaction, name: str, hex_code) -> str:
         role = await self.role(name, hex_code, ref_role=self.guild.me.top_role)
         self.paint.update(role.id, hex_code)
-        await self.send_img(role, context.channel, hex_code.lstrip('#').upper(),
+        await self.send_img(role, interaction.channel, hex_code.lstrip('#').upper(),
             f"**Created**: {role.mention}", '')
-        return '**New Color Created!**'
+        return '**New Color Created**'
 
-    async def hospital(self) -> str:
+    async def hospital(self) -> None:
         hospital_perms = {self.roles['Scientist']: self.view,
             self.roles['Nurse']: self.view, self.roles['Hospitalized']: self.view}
         category = await self.guild.create_category('🏥🚑Hospital University🧬🔬')
@@ -243,10 +243,10 @@ class Create:
                 self.roles['Scientist']: self.post_and_view, self.roles['Nurse']: self.post_and_view})
         await category.create_voice_channel(
             name='🛋️visitation💔🌡️💀', overwrites=hospital_perms | self._main_perms())
-        return 'Hospital created.'
+        return None
 
-    async def inventory(self) -> str:
-        category = await self.guild.create_category('🎒👛Designer Bag💼💄👝🍬')
+    async def inventory(self) -> None:
+        category = await self.guild.create_category('🎒👛Special Items💼🍬👝')
         for name, filename in self.lives.items():
             channel = await category.create_text_channel(
                 name=name, overwrites=self.view_only_channel | {self.roles[name]: self.view})
@@ -264,7 +264,7 @@ class Create:
             channel = await category.create_text_channel(
                 name=name, overwrites=self.view_only_channel | {self.roles[name]: self.view})
             await self.send_img(self.roles[name], channel, item.name, self.roles[name].mention, '')
-        category = await self.guild.create_category('🧰⚙️Paraphernalia📕🛠️🚧💥')
+        category = await self.guild.create_category('🧰⚙️Tactical Items📕🛠️🪖')
         for name, item in self.items.items():
             for i in range(1, 4):
                 role_name = name * i
@@ -273,9 +273,9 @@ class Create:
                         self.roles[role_name]: self.view})
                 await self.send_img(
                     self.roles[role_name], channel, f"{item.name}{i}", '', '')
-        return 'Inventory created.'
+        return None
 
-    async def main_channels(self) -> str:
+    async def main_channels(self) -> None:
         category = await self.guild.create_category(
             '🏰🐉Town Square🏤🏦🌈🏨', overwrites=self._main_perms())
         for name in ['🏙️center👥⛲🦢🏞️', '🎼orchestra👥📻🎵', '🎞️playhouse📽️🎬🎭',
@@ -284,9 +284,9 @@ class Create:
             await category.create_text_channel(name=name)
         await category.create_voice_channel(name='🏰town-hall🧝🏼‍♀️🤴🏻🧝🏼‍♀️')
         await category.create_voice_channel(name='🆘crisis-assistance☎️')
-        return 'Main channels created.'
+        return None
 
-    async def outskirts(self) -> str:
+    async def outskirts(self) -> None:
         outsider_perms = self._main_perms() | {self.roles['Outsider']: self.view}
         category = await self.guild.create_category(
             '🏕️🦌Outskirts🌿🐦🌳🌰🐿️', overwrites=outsider_perms)
@@ -294,9 +294,9 @@ class Create:
         system_channel = await category.create_text_channel(name='🌀🪞gay-portal🪞🌀')
         await self.guild.edit(system_channel=system_channel)
         await category.create_voice_channel(name='🐾🍂wilderness⛰️🍄')
-        return 'Outskirts created.'
+        return None
 
-    async def prison(self) -> str:
+    async def prison(self) -> None:
         prison_perms = {self.roles['Guard']: self.view, self.roles['Prisoner']: self.view}
         category = await self.guild.create_category('🏢🚓Gay Factory Prison 👮🏻🇺🇸')
         await category.create_text_channel(
@@ -314,22 +314,7 @@ class Create:
             name='🔒wardens-office🗝️', overwrites=self.view_only_channel | prison_perms | {
                 self.roles['Guard']: self.post_and_view})
         await category.create_voice_channel('🪑visitation💂🏻⛓️😡', overwrites=self._main_perms())
-        return 'Prison created.'
-
-    async def reset(self) -> str:
-        m, n = 0, 0
-        for role in self.guild.roles:
-            if (role.id != self.guild.default_role.id) and (role.id != self.guild.me.top_role.id):
-                await role.delete()
-                await sleep(2)
-                n += 1
-        for channel in self.guild.channels:
-            if channel.id != self.guild.system_channel.id:
-                await channel.delete()
-                await sleep(2)
-                m += 1
-        self.paint.reset()
-        return f"Deleted {n} roles and {m} channels."
+        return None
 
     async def role(self, name: str, hex_code: str,
             alias='', hoist=False, perms: Optional[Permissions] = None,
@@ -357,15 +342,15 @@ class Create:
             await self.guild.edit_role_positions(
                 positions={r: i for i, r in enumerate(roles)})
         # Discord rate limits role creation.
-        await sleep(5)
+        await sleep(2)
         return new_role
 
-    async def rules(self) -> str:
+    async def rules(self) -> None:
         rules_perms = self.view_only_channel | self._main_perms() | {self.roles['Guard']: self.post_and_view}
         category = await self.guild.create_category('🛡️⚔️COMMANDMENTS⚔️🛡️', overwrites=rules_perms)
         for rule in ['no-anime', 'no-bullying', 'no-gore', 'no-nudes']:
             await category.create_text_channel(name=f"⛔{rule}🗃️")
-        return 'Rules created.'
+        return None
 
     async def send_img(self, color: Role, channel: TextChannel, filename: str,
             note: str, title: str, author: Optional[Member] = None) -> None:

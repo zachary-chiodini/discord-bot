@@ -62,7 +62,7 @@ class Game:
         return None
 
     async def delete(self, member: Member) -> None:
-        self.stats.delete_player(member.id)
+        self.stats.delete(member.id)
         return None
 
     async def increase_posts(self, member: Member) -> None:
@@ -109,11 +109,6 @@ class Game:
             await self.create.send_img(new_role, channel, str((next_lvl % 7) + 1), note, title, member)
             for _ in range(self.stats.level_hearts(member.id)):
                 await self.add_heart(member)
-        return None
-
-    async def reset(self) -> None:
-        await self.create.reset()
-        self.stats.reset()
         return None
 
     async def remove_heart(self, member: Member) -> None:

@@ -57,6 +57,14 @@ class GameBot(Base):
     ADMIN_USER_ID = 1380323054479085648
     ADMIN_ROLE_ID = 0
 
+    buy = app_commands.Group(name='buy', description='Buy a purchasable item')
+
+    gift = app_commands.Group(name='gift', description='Gift an item')
+
+    sell = app_commands.Group(name='sell', description='Sell a purchasable item')
+
+    trade = app_commands.Group(name='trade', description='Trade an item')
+
     paint = app_commands.Group(name='paint', description='Commands for managing colors')
 
     @app_commands.describe(
@@ -140,20 +148,18 @@ class GameBot(Base):
         return None
 
     @master.command()
+    async def create(self, interaction: Interaction, item: Role) -> None:
+        pass
+
+    @master.command()
     async def initialize(self, interaction: Interaction) -> None:
         await interaction.response.defer()
         resp = await self.gamer.create.all()
         for member in interaction.guild.members:
-            await member.add_roles(*[self.gamer.roles['Level'][0], self.gamer.roles['💀'],
-                self.gamer.roles['🔮💎🪨🕹️'], self.gamer.roles['TOWG']])
+            if not member.bot:
+                await member.add_roles(*[self.gamer.roles['Level'][0], self.gamer.roles['💀'],
+                    self.gamer.roles['🔮💎🪨🕹️'], self.gamer.roles['TOWG']])
         await interaction.followup.send(resp)
-        return None
-
-    @master.command()
-    async def reset(self, interaction: Interaction) -> None:
-        interaction.response.defer()
-        resp = await self.gamer.reset()
-        await interaction.response.send_message(resp)
         return None
 
 
