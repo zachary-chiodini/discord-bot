@@ -1,10 +1,8 @@
 from asyncio import sleep
 from typing import Dict, List, Optional, Union
 
-from discord import (CategoryChannel, Color, Embed, File, Interaction, Guild, Member, Permissions,
+from discord import (CategoryChannel, Color, Embed, File, Guild, Member, Permissions,
     PermissionOverwrite, Role, TextChannel)
-
-from paint import Paint
 
 
 class Item:
@@ -19,7 +17,7 @@ class Item:
         self.perms = perms
 
 
-class Create:
+class Setup:
 
     Roles = Dict[str, Union[Role, List[Role]]]
 
@@ -55,7 +53,6 @@ class Create:
             '❤️❤️❤️❤️❤️❤️❤️❤️': 'heart8', '❤️❤️❤️❤️❤️❤️❤️❤️❤️': 'heart9',
             '❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️': 'heart10', '💀': 'skull', '👻': 'ghost1',
             '👻👻': 'ghost2', '👻👻👻': 'ghost3'}
-        self.paint = Paint()
         self.roles = roles
         self.app = Permissions(use_application_commands=True)
         self.base = Permissions(add_reactions=True, attach_files=True, change_nickname=True,
@@ -77,7 +74,7 @@ class Create:
             create_public_threads=False, create_polls=False)
         self.view_only_channel = {self.guild.default_role: PermissionOverwrite(
             send_messages=False, create_public_threads=False, create_polls=False)}
-        self.perm_items = {
+        self.perm_stacks = {
             '📜🔮💎🪨🕹️': Item('#DFFF00', 'scrollwandcharmruneremote', 0, 0, '', self.base),
             '🔮💎🪨🕹️': Item('#7A1F3D', 'wandcharmruneremote', 0, 0, '',
                 Permissions(self.base.value & ~self.mog.value)),
@@ -140,6 +137,8 @@ class Create:
             '🪨': Item('#7DA27E', 'rune', 25, 1, '⭐ Enables holder to post', self.post),
             '🕹️': Item('#4169E1', 'remote', 25, 1,
                 f'⭐ Enables user to control {self.guild.me.mention} with /', self.app)}
+        self.perm_items = self.perm_stacks | self.perm_single_items
+        self.all_items = self.admin | self.extra | self.items | self.perm_items
         self.primary_roles = {
             'Priest': '#67080B',
             'Scientist': '#DFFF00',
@@ -214,13 +213,6 @@ class Create:
                 f"{item.name.title()} {name}")
         return None
 
-    async def color(self, interaction: Interaction, name: str, hex_code) -> str:
-        role = await self.role(name, hex_code, ref_role=self.guild.me.top_role)
-        self.paint.update(role.id, hex_code)
-        await self.send_img(role, interaction.channel, hex_code.lstrip('#').upper(),
-            f"**Created**: {role.mention}", '')
-        return '**New Color Created**'
-
     async def hospital(self) -> None:
         hospital_perms = {self.roles['Scientist']: self.view,
             self.roles['Nurse']: self.view, self.roles['Hospitalized']: self.view}
@@ -260,7 +252,7 @@ class Create:
             channel = await category.create_text_channel(
                 name=name, overwrites=self.view_only_channel | {self.roles[name]: self.view})
             await self.send_img(self.roles[name], channel, item.name, self.roles[name].mention, '')
-        for name, item in self.perm_items.items():
+        for name, item in self.perm_stacks.items():
             channel = await category.create_text_channel(
                 name=name, overwrites=self.view_only_channel | {self.roles[name]: self.view})
             await self.send_img(self.roles[name], channel, item.name, self.roles[name].mention, '')
@@ -394,7 +386,7 @@ class Create:
                 # Allows stacking 3 of the same item.
                 for i in range(1, 4):
                     await self.role(name * i, item.color)
-        for name, item in self.perm_items.items():
+        for name, item in self.perm_stacks.items():
             if name not in self.roles:
                 await self.role(name, item.color, perms=item.perms)
         for name, item in self.perm_single_items.items():
@@ -405,18 +397,17 @@ class Create:
                 await self.role(name, hex_code, hoist=True)
         return None
 
-    def _collect_roles(self) -> None:
-        self.roles['Level'] = set()
-        for role in self.guild.roles:
-            if not self.paint.id_exists(role.id):
-                if role.name.isdigit():
-                    self.roles['Level'].add(role)
-                else:
-                    self.roles[role.name] = role
-        self.roles['Level'] = sorted(self.roles['Level'],key=lambda r: int(r.name))
-        return None
-
     def _main_perms(self) -> Dict[Role, PermissionOverwrite]:
         return {self.roles['Priest']: self.view, self.roles['Scientist']: self.view,
             self.roles['Guard']: self.view, self.roles['Nurse']: self.view,
             self.roles['TOWG']: self.view}
+
+    def _collect_roles(self) -> None:
+        self.roles['Level'] = set()
+        for role in self.guild.roles:
+            if role.name.isdigit():
+                self.roles['Level'].add(role)
+            else:
+                self.roles[role.name] = role
+        self.roles['Level'] = sorted(self.roles['Level'],key=lambda r: int(r.name))
+        return None

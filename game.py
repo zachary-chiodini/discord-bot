@@ -1,6 +1,9 @@
-from discord import Color, Guild, Member
+from typing import Set, Tuple
 
-from create import Create
+from discord import Color, Guild, Member
+from emoji import distinct_emoji_list
+
+from setup import Setup
 from stats import Stats
 
 
@@ -8,16 +11,17 @@ class Game:
 
     def __init__(self, guild: Guild):
         self.roles = {}
-        self.create = Create(guild, self.roles)
+        self.setup = Setup(guild, self.roles)
         self.stats = Stats()
 
     async def add_heart(self, member: Member) -> None:
-        for role in member.roles:
+        for role in member.roles.copy():
             if role.name.startswith('💀'):
                 new_role = self.roles['❤️']
                 image = 'heart1'
                 title = 'Animation'
                 notes = f"{member.mention} just animated!\n**Vigor**: {new_role.mention}"
+                await member.remove_roles(role)
                 break
             elif role.name.startswith('❤️'):
                 count = role.name.count('❤️')
@@ -31,6 +35,7 @@ class Game:
                 else:
                     title = 'Got a Heart!'
                     notes = f"{member.mention} got +1 ❤️!\n**Vigor**: {new_role.mention}"
+                await member.remove_roles(role)
                 break
             elif role.name.startswith('👻'):
                 count = role.name.count('👻')
@@ -46,10 +51,15 @@ class Game:
                     notes = f"{member.mention} is liminal.\n**Vigor**: 💀"
                     await member.remove_roles(*[role for role in member.roles if role.name in self.prime])
                     await member.add_roles(self.roles['Hospitalized'])
+                await member.remove_roles(role)
                 break
-        await member.remove_roles(role)
+        else:
+            new_role = self.roles['❤️']
+            title = 'Got a Heart!'
+            image = 'heart1'
+            notes = f"{member.mention} got +1 ❤️!\n**Vigor**: {new_role.mention}"
         await member.add_roles(new_role)
-        await self.create.send_img(
+        await self.setup.send_img(
             new_role, member.guild.system_channel, image, notes, title, member)
         return None
 
@@ -84,6 +94,8 @@ class Game:
         for old_role in member.roles:
             if old_role in self.roles['Level']:
                 break
+        else:
+            old_role = self.roles['Level'][0]
         curr_lvl = int(old_role.name)
         next_lvl = self.stats.level_up(member.id)
         if next_lvl != curr_lvl:
@@ -94,7 +106,7 @@ class Game:
                     # Can't create 100+ roles in a row.
                     ref_role = self.roles['Level'][-1]
                     for i in range(len(self.roles['Level']), next_lvl + 1):
-                        new_role = await self.create.role(str(i), f"#{Color.random().value:06X}",
+                        new_role = await self.setup.role(str(i), f"#{Color.random().value:06X}",
                             alias='Level', ref_role=ref_role)
                         ref_role = new_role
             else:
@@ -106,8 +118,9 @@ class Game:
             self.stats.level_up(member.id)
             note = f"{prefix}graded From Level {old_role.mention} to Level {new_role.mention}" 
             channel = member.guild.system_channel
-            await self.create.send_img(new_role, channel, str((next_lvl % 7) + 1), note, title, member)
+            await self.setup.send_img(new_role, channel, str((next_lvl % 7) + 1), note, title, member)
             for _ in range(self.stats.level_hearts(member.id)):
+                member = await member.guild.fetch_member(member.id)
                 await self.add_heart(member)
         return None
 
@@ -148,5 +161,5 @@ class Game:
                 break
         await member.remove_roles(role)
         await member.add_roles(new_role)
-        await self.create.send_img(
+        await self.setup.send_img(
             new_role, member.guild.system_channel, image, notes, title, member)
