@@ -179,62 +179,68 @@ class GameBot(Base):
         if member.bot:
             await interaction.response.send_message(f"Cannot create {member.mention} an item.")
             return None
+        # Items roles are named emojis
         new_item_list = distinct_emoji_list(item_role.name)
-        if new_item_list:
-            item_key = new_item_list[0]
-            extra_items, owned_items = set(), set()
-            if item_key in self.gamer.setup.perm_items:
-                # Handles permission item roles
-                # Note: Permission roles are overly complicated.
-                # Creating stacked items that act as combined permissions is more complicated,
-                # but it looks cool
-                for cur_role in member.roles:
-                    if cur_role.name in self.gamer.setup.perm_items:
-                        for owned_item in distinct_emoji_list(cur_role.name):
-                            owned_items.add(owned_item.mention)
-                            if owned_item in new_item_list:
-                                extra_items.add(owned_item.mention)
-                        if len(extra_items) == len(new_item_list):
-                            await interaction.response.send_message(
-                                f"{member.mention} already has item {', '.join(extra_items)}")
-                            return None
-                        new_stack = owned_items
-                        new_stack.update(set(new_item_list))
-                        new_stack = ''.join(sorted(new_stack, key=lambda s: '📜🔮💎🪨🕹️'.find(s)))
-                        break
-                else:
-                    cur_role = None
-                    new_stack = item_role.name
+        if not new_item_list:
+            await interaction.response.send_message(f"{item_role.mention} is not an item.")
+            return None
+        item_key = new_item_list[0]
+        extra_items, owned_items = set(), set()
+        if item_key in self.gamer.setup.perm_items:
+            # Handles permission item roles
+            # Note: Permission roles are overly complicated
+            # Creating stacked items that act as combined permissions is more complicated
+            # but it looks cool
+            for cur_role in member.roles:
+                if cur_role.name in self.gamer.setup.perm_items:
+                    for owned_item in distinct_emoji_list(cur_role.name):
+                        owned_items.add(owned_item.mention)
+                        if owned_item in new_item_list:
+                            extra_items.add(owned_item.mention)
+                    if len(extra_items) == len(new_item_list):
+                        await interaction.response.send_message(
+                            f"{member.mention} already has item {', '.join(extra_items)}")
+                        return None
+                    new_stack = owned_items
+                    new_stack.update(set(new_item_list))
+                    new_stack = ''.join(sorted(new_stack, key=lambda s: '📜🔮💎🪨🕹️'.find(s)))
+                    break
             else:
-                # Handles all other item roles (Stacks up to 3)
-                for cur_role in member.roles:
-                    if item_key in cur_role.name:
-                        owned_items.update(set(distinct_emoji_list(cur_role.name)))
-                        if len(owned_items) == 3:
-                            await interaction.response.send_message(
-                                f"{member.mention} already has the max stack {cur_role.mention}.")
-                            return None
-                        n_items = len(new_item_list) + len(owned_items)
-                        if n_items > 3:
-                            for _ in range(n_items - 3):
-                                extra_items.add(item_key)
-                            n_items = 3
-                        new_stack = item_key * n_items
-                        break
-                else:
-                    cur_role = None
-                    new_stack = item_role.name
-            if extra_items:
-                await interaction.channel.send(
-                    f"{member.mention} already had item {', '.join(extra_items)}.")
-            points = 0
-            created_items = new_item_list - extra_items
-            for new_item in created_items:
-                points += self.gamer.setup.all_items[new_item].points
-            await self.gamer.increase_score(member, points)
-            created_items_str = ', '.join(self.role[item].mention for item in created_items)
-            await interaction.followup.send(
-                f"{interaction.user} created {member.member} {created_items_str}")
+                cur_role = None
+                new_stack = item_role.name
+        else:
+            # Handles all other item roles (Stacks up to 3)
+            for cur_role in member.roles:
+                if item_key in cur_role.name:
+                    owned_items.update(set(distinct_emoji_list(cur_role.name)))
+                    if len(owned_items) == 3:
+                        await interaction.response.send_message(
+                            f"{member.mention} already has the max stack {cur_role.mention}.")
+                        return None
+                    n_items = len(new_item_list) + len(owned_items)
+                    if n_items > 3:
+                        for _ in range(n_items - 3):
+                            extra_items.add(item_key)
+                        n_items = 3
+                    new_stack = item_key * n_items
+                    break
+            else:
+                cur_role = None
+                new_stack = item_role.name
+        if extra_items:
+            await interaction.channel.send(
+                f"{member.mention} already had item {', '.join(extra_items)}.")
+        points = 0
+        created_items = new_item_list - extra_items
+        for new_item in created_items:
+            points += self.gamer.setup.all_items[new_item].points
+        await self.gamer.increase_score(member, points)
+        if cur_role:
+            await member.remove_roles(cur_role)
+        await member.add_roles(self.gamer.roles[new_stack])
+        created_items_str = ', '.join(self.role[item].mention for item in created_items)
+        await interaction.followup.send(
+            f"{interaction.user} created {member.member} {created_items_str}")
         return None
 
     @master.command()
