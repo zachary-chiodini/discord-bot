@@ -1,5 +1,5 @@
-from discord import (app_commands, Guild, Intents, Interaction, Member, Message, Object,
-    Permissions, RawReactionActionEvent, Role)
+from discord import (app_commands, Guild, Intents, Interaction, Member, Message, MessageType,
+    Object, Permissions, RawReactionActionEvent, Role)
 from discord.ext import commands
 
 from game import Game
@@ -35,6 +35,8 @@ class Base(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: Message) -> None:
         if message.author.bot:
+            return None
+        if message.type == MessageType.new_member:
             return None
         await self.gamer.increase_posts(message.author)
         return None
