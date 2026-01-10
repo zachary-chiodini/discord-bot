@@ -1,10 +1,10 @@
 from discord import (app_commands, Guild, Intents, Interaction, Member, Message, Object,
     Permissions, RawReactionActionEvent, Role)
 from discord.ext import commands
-from emoji import distinct_emoji_list
 
 from game import Game
 from paint import Paint
+from utils import get_emoji_list
 
 
 class Base(commands.Cog):
@@ -82,7 +82,7 @@ class GameBot(Base):
         if not self.color.is_hexcode(color_hex):
             await interaction.response.send_message('Color must be hex code in the form #RRGGBB.')
             return None
-        if distinct_emoji_list(color_name):
+        if get_emoji_list(color_name):
             await interaction.response.send_message('Colors cannot contain emojis.')
             return None
         if color_name.isdigit():
@@ -156,8 +156,8 @@ class GameBot(Base):
     delete = app_commands.Group(name='delete', description='Administrator commands',
         default_permissions=Permissions(administrator=True))
 
-    @delete.command()
-    async def channels(self, interaction: Interaction) -> None:
+    @delete.command(name='channels')
+    async def delete_channels(self, interaction: Interaction) -> None:
         await interaction.response.defer()
         for i, channel in enumerate(interaction.guild.channels):
             if channel.id != interaction.channel.id:
@@ -165,10 +165,27 @@ class GameBot(Base):
         await interaction.followup.send(f"Deleted {i} channels.")
         return None
 
-    @delete.command()
-    async def role(self, interaction: Interaction, role: Role) -> None:
+    @delete.command(name='messages')
+    async def delete_messages(self, interaction: Interaction) -> None:
+        await interaction.response.defer()
+        interaction_message = await interaction.original_response()
+        deleted = await interaction.channel.purge(
+            before=interaction_message, check=lambda m: not m.pinned)
+        n = 0
+        async for message in interaction.channel.history(before=interaction_message):
+            await message.delete()
+            await interaction.followup.send(
+                f"Message remains: Deleted {message.id} (Rate limited)")
+            n += 1
+        await interaction.followup.send(f"Deleted {len(deleted) + 1} messages.")
+        return None
+
+    @delete.command(name='role')
+    async def delete_role(self, interaction: Interaction, role: Role) -> None:
         await role.delete()
-        await interaction.followup.send(f"{role.mention} deleted.")
+        if self.color.id_exists(role.id):
+            self.color.delete(role.id)
+        await interaction.response.send_message(f"{role.mention} deleted.")
         return None
 
     master = app_commands.Group(name='master', description='Administrator commands',
@@ -180,12 +197,13 @@ class GameBot(Base):
             await interaction.response.send_message(f"Cannot create {member.mention} an item.")
             return None
         # Items roles are named emojis
-        new_item_list = distinct_emoji_list(item_role.name)
+        new_item_list = get_emoji_list(item_role.name)
         if not new_item_list:
             await interaction.response.send_message(f"{item_role.mention} is not an item.")
             return None
+        await interaction.response.defer()
         item_key = new_item_list[0]
-        extra_items, owned_items = set(), set()
+        extra_item_list, owned_item_list = [], []
         if item_key in self.gamer.setup.perm_items:
             # Handles permission item roles
             # Note: Permission roles are overly complicated
@@ -193,16 +211,15 @@ class GameBot(Base):
             # but it looks cool
             for cur_role in member.roles:
                 if cur_role.name in self.gamer.setup.perm_items:
-                    for owned_item in distinct_emoji_list(cur_role.name):
-                        owned_items.add(owned_item.mention)
+                    for owned_item in get_emoji_list(cur_role.name):
+                        owned_item_list.append(owned_item)
                         if owned_item in new_item_list:
-                            extra_items.add(owned_item.mention)
-                    if len(extra_items) == len(new_item_list):
-                        await interaction.response.send_message(
-                            f"{member.mention} already has item {', '.join(extra_items)}")
+                            extra_item_list.append(owned_item)
+                    if len(extra_item_list) == len(new_item_list):
+                        await interaction.followup.send(
+                            f"{member.mention} already has item {item_role.mention}")
                         return None
-                    new_stack = owned_items
-                    new_stack.update(set(new_item_list))
+                    new_stack = set(new_item_list) | set(owned_item_list)
                     new_stack = ''.join(sorted(new_stack, key=lambda s: '📜🔮💎🪨🕹️'.find(s)))
                     break
             else:
@@ -212,35 +229,35 @@ class GameBot(Base):
             # Handles all other item roles (Stacks up to 3)
             for cur_role in member.roles:
                 if item_key in cur_role.name:
-                    owned_items.update(set(distinct_emoji_list(cur_role.name)))
-                    if len(owned_items) == 3:
-                        await interaction.response.send_message(
+                    owned_item_list = get_emoji_list(cur_role.name)
+                    if len(owned_item_list) == 3:
+                        await interaction.followup.send(
                             f"{member.mention} already has the max stack {cur_role.mention}.")
                         return None
-                    n_items = len(new_item_list) + len(owned_items)
+                    n_items = len(new_item_list) + len(owned_item_list)
                     if n_items > 3:
-                        for _ in range(n_items - 3):
-                            extra_items.add(item_key)
+                        extra_item_list.extend([item_key for _ in range(n_items - 3)])
                         n_items = 3
                     new_stack = item_key * n_items
                     break
             else:
                 cur_role = None
                 new_stack = item_role.name
-        if extra_items:
-            await interaction.channel.send(
-                f"{member.mention} already had item {', '.join(extra_items)}.")
+        if extra_item_list:
+            mention_str = ', '.join([self.gamer.roles[item].mention for item in extra_item_list])
+            await interaction.channel.send(f"{member.mention} already had item {mention_str}.")
         points = 0
-        created_items = new_item_list - extra_items
-        for new_item in created_items:
+        created_item_list = [
+            item_key for _ in range(len(new_item_list) - len(extra_item_list))]
+        for new_item in created_item_list:
             points += self.gamer.setup.all_items[new_item].points
         await self.gamer.increase_score(member, points)
         if cur_role:
             await member.remove_roles(cur_role)
         await member.add_roles(self.gamer.roles[new_stack])
-        created_items_str = ', '.join(self.role[item].mention for item in created_items)
+        mention_str = ', '.join([self.gamer.roles[item].mention for item in created_item_list])
         await interaction.followup.send(
-            f"{interaction.user} created {member.member} {created_items_str}")
+            f"{interaction.user.mention} created {member.mention} {mention_str}")
         return None
 
     @master.command()
