@@ -54,7 +54,6 @@ class Setup:
             '❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️': 'heart10', '💀': 'skull', '👻': 'ghost1',
             '👻👻': 'ghost2', '👻👻👻': 'ghost3'}
         self.roles = roles
-        # Handles permission item roles
         # Note: Permission roles are overly complicated
         # Creating stacked items that act as combined permissions is way more complicated
         # but it looks cool
