@@ -54,6 +54,10 @@ class Setup:
             '❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️': 'heart10', '💀': 'skull', '👻': 'ghost1',
             '👻👻': 'ghost2', '👻👻👻': 'ghost3'}
         self.roles = roles
+        # Handles permission item roles
+        # Note: Permission roles are overly complicated
+        # Creating stacked items that act as combined permissions is way more complicated
+        # but it looks cool
         self.app = Permissions(use_application_commands=True)
         self.base = Permissions(add_reactions=True, attach_files=True, change_nickname=True,
             connect=True, create_polls=True, create_public_threads=True, embed_links=True,
