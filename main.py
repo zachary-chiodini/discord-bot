@@ -23,7 +23,7 @@ class Base(commands.Cog):
             self.gamer.roles['💎🪨🕹️'], self.gamer.roles['Outsider']])
         await self.gamer.setup.send_img(
             self.gamer.roles['Outsider'], member.guild.system_channel, 'meilanliu',
-            f"Name: {member.name}\nAlias: {member.mention}", 'Outsider Identifed', member)
+            f"Name: {member.name}\nAlias: {member.mention}", 'Outsider Identified', member)
         await member.guild.system_channel.send(f"{member.mention}, why are you here?")
         return None
 
@@ -34,9 +34,7 @@ class Base(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: Message) -> None:
-        if message.author.bot:
-            return None
-        if message.type == MessageType.new_member:
+        if message.author.bot or (message.type == MessageType.new_member):
             return None
         await self.gamer.increase_posts(message.author)
         return None
