@@ -378,14 +378,14 @@ class Setup:
         for name in self.lives:
             if name not in self.roles:
                 await self.role(name, '#BE1931')
-        for name in self.coins:
-            if name not in self.roles:
-                await self.role(name, '#D4AF37')
         for name, item in self.items.items():
             if name not in self.roles:
                 # Allows stacking 3 of the same item.
                 for i in range(1, 4):
                     await self.role(name * i, item.color)
+        for name in self.coins:
+            if name not in self.roles:
+                await self.role(name, '#D4AF37')
         for name, item in self.perm_stacks.items():
             if name not in self.roles:
                 await self.role(name, item.color, perms=item.perms)
