@@ -102,6 +102,8 @@ class Stats:
     def increase_score(self, player_id: int, points: int) -> None:
         player = self.get_player(player_id)
         player.score += points
+        if player.score < 0:
+            player.score = 0
         self._update(player)
         return None
 
