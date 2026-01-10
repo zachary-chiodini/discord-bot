@@ -93,6 +93,9 @@ class GameBot(Base):
             await interaction.response.send_message(
                 f"Colors cannot be a primary role: {', '.join(primary_roles)}.")
             return None
+        if color_name.title() == interaction.guild.me.top_role.name:
+            await interaction.response.send_message(
+                f"Colors cannot be {interaction.guild.me.top_role.mention}.")
         await interaction.response.defer()
         role = await self.gamer.setup.role(
             color_name.title(), color_hex, ref_role=self.guild.me.top_role)
