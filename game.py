@@ -63,6 +63,10 @@ class Game:
             new_role, member.guild.system_channel, image, notes, title, member)
         return None
 
+    async def decrease_posts(self, member: Member) -> None:
+        await self.increase_posts(member, -1)
+        return None
+
     async def decrease_reacts(self, member: Member) -> None:
         await self.increase_reacts(member, -1)
         return None
@@ -75,8 +79,8 @@ class Game:
         self.stats.delete(member.id)
         return None
 
-    async def increase_posts(self, member: Member) -> None:
-        self.stats.increase_posts(member.id)
+    async def increase_posts(self, member: Member, points: int = 1) -> None:
+        self.stats.increase_posts(member.id, points)
         await self.level_up(member)
         return None
 
