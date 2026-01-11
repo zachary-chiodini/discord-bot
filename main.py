@@ -35,7 +35,7 @@ class Base(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: Message) -> None:
-        if message.author.bot or (message.type == MessageType.new_member):
+        if message.type == MessageType.new_member:
             return None
         await self.gamer.increase_posts(message.author)
         return None
@@ -43,14 +43,12 @@ class Base(commands.Cog):
     @commands.Cog.listener()
     async def on_raw_bulk_message_delete(self, payload: RawBulkMessageDeleteEvent):
         for message in payload.cached_messages:
-            if message.author.id != self.gamer.setup.guild.me.id:
-                await self.gamer.decrease_posts(message.author)
+            await self.gamer.decrease_posts(message.author)
         return None
 
     @commands.Cog.listener()
     async def on_raw_message_delete(self, payload: RawMessageDeleteEvent) -> None:
-        if (payload.cached_message
-                and (payload.cached_message.author.id != self.gamer.setup.guild.me.id)):
+        if payload.cached_message:
             await self.gamer.decrease_posts(payload.cached_message.author)
         return None
 
@@ -100,44 +98,47 @@ class GameBot(Base):
     @app_commands.describe(member='Player to show stats of')
     @show.command(name='stats', description='Show player stats')
     async def stats(self, interaction: Interaction, member: Member) -> None:
-        color, coins, items = None, set(), set()
-        level, perms, state, vigor = '❌', '❌', '❌', '❌'
+        coins, items = set(), set()
+        color_role = None
+        level, perms, state, vigor = '♾️', '♾️', '', '♾️'
         max_stacked = 0
         for role in member.roles:
             item_list = get_emoji_list(role.name)
             if item_list:
                 item_key = item_list[0]
                 if item_key in self.gamer.setup.lives:
-                    vigor = role
+                    vigor = role.mention
                 elif item_key in self.gamer.setup.extra:
                     coins.add(role.mention)
                 elif item_key in self.gamer.setup.perm_single_items:
-                    perms = role
+                    perms = role.mention
                 else:
                     max_stacked = int(len(item_list) == 3)
                     items.add(role.mention)
             elif self.color.id_exists(role.id):
-                color = role
+                color_role = role
             elif role.name.isdigit():
-                level = role
+                level = role.mention
             elif role.name in self.gamer.setup.primary_roles:
-                state = role
-        if not color:
-            color = level
+                state = role.mention
+        if not color_role:
+            color_role = member.top_role
+        if not state:
+            state = member.top_role.mention
         player = self.gamer.stats.get_player(member.id)
         embed = Embed(
             description=(
                 f"**Place**: {self.gamer.stats.place(member.id)}\n"
                 f"**Alias**: {member.mention}\n"
-                f"**Vigor**: {vigor.mention}\n"
-                f"**Level**: {level.mention}\n"
-                f"**State**: {state.mention}\n"
+                f"**Vigor**: {vigor}\n"
+                f"**Level**: {level}\n"
+                f"**State**: {state}\n"
                 f"**Perm**: {perms}\n"
                 f"**Posts**: {player.posts}\n"
                 f"**React**: {player.reacts}\n"
                 f"**Score**: {player.score}\n"
-                f"**Color**: {color.mention}"),
-            color=color.color)
+                f"**Color**: {color_role.mention}"),
+            color=color_role.color)
         embed.set_thumbnail(url=member.display_avatar.url)
         if coins:
             embed.add_field(name='', value=f"**Coins**: {''.join(coins)}", inline=False)
@@ -264,9 +265,6 @@ class GameBot(Base):
 
     @master.command()
     async def create(self, interaction: Interaction, member: Member, item_role: Role) -> None:
-        if member.bot:
-            await interaction.response.send_message(f"Cannot create {member.mention} an item.")
-            return None
         # Items roles are named emojis
         new_item_list = get_emoji_list(item_role.name)
         if not new_item_list:
@@ -318,8 +316,9 @@ class GameBot(Base):
             mention_str = ', '.join([self.gamer.roles[item].mention for item in extra_item_list])
             await interaction.channel.send(f"{member.mention} already had item {mention_str}.")
         points = 0
-        created_item_list = [
-            item_key for _ in range(len(new_item_list) - len(extra_item_list))]
+        created_item_list = new_item_list.copy()
+        for item in extra_item_list:
+            created_item_list.remove(item)
         for new_item in created_item_list:
             points += self.gamer.setup.all_items[new_item].points
         await self.gamer.increase_score(member, points)
@@ -340,7 +339,7 @@ class GameBot(Base):
 
 
 if __name__ == "__main__":
-    bot = commands.Bot(command_prefix='!', intents=Intents.all())
+    bot = commands.Bot(command_prefix='/', intents=Intents.all())
 
     @bot.event
     async def on_ready():
