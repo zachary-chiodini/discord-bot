@@ -88,15 +88,19 @@ class Stats:
         self._create_player(player_id)
         return self._stats[player_id]
 
-    def increase_posts(self, player_id: int) -> None:
+    def increase_posts(self, player_id: int, points: int = 1) -> None:
         player = self.get_player(player_id)
-        player.posts += 1
-        self.increase_score(player_id, 1)
+        player.posts += points
+        if player.posts < 0:
+            player.posts = 0
+        self.increase_score(player_id, points)
         return None
 
     def increase_reacts(self, player_id: int, points: int = 1) -> None:
         player = self.get_player(player_id)
         player.reacts += points
+        if player.reacts < 0:
+            player.reacts = 0
         self.increase_score(player_id, points)
 
     def increase_score(self, player_id: int, points: int) -> None:
