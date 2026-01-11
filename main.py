@@ -1,5 +1,6 @@
-from discord import (app_commands, Guild, Intents, Interaction, Member, Message, MessageType,
-    Object, Permissions, RawReactionActionEvent, Role)
+from discord import (app_commands, Embed, Guild, Intents, Interaction, Member, Message,
+    MessageType, Object, Permissions, RawBulkMessageDeleteEvent, RawMessageDeleteEvent,
+    RawReactionActionEvent, Role)
 from discord.ext import commands
 
 from game import Game
@@ -40,6 +41,20 @@ class Base(commands.Cog):
         return None
 
     @commands.Cog.listener()
+    async def on_raw_bulk_message_delete(self, payload: RawBulkMessageDeleteEvent):
+        for message in payload.cached_messages:
+            if message.author.id != self.gamer.setup.guild.me.id:
+                await self.gamer.decrease_posts(message.author)
+        return None
+
+    @commands.Cog.listener()
+    async def on_raw_message_delete(self, payload: RawMessageDeleteEvent) -> None:
+        if (payload.cached_message
+                and (payload.cached_message.author.id != self.gamer.setup.guild.me.id)):
+            await self.gamer.decrease_posts(payload.cached_message.author)
+        return None
+
+    @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: RawReactionActionEvent) -> None:
         if payload.guild_id != self.GUILD_ID:
             return None
@@ -65,13 +80,81 @@ class GameBot(Base):
 
     sell = app_commands.Group(name='sell', description='Sell a purchasable item')
 
+    show = app_commands.Group(name='show', description='Display player attributes')
+
+    @app_commands.describe(color_role='Selected color')
+    @show.command(name='color', description='Look up a color')
+    async def show_color(self, interaction: Interaction, color_role: Role) -> None:
+        if not self.color.id_exists(color_role.id):
+            await interaction.response.send_message(f"Color not found: {color_role.mention}.")
+            return None
+        filename = self.color.get(color_role.id).lstrip('#')
+        await self.gamer.setup.send_img(color_role, interaction.channel, filename, '', '')
+        resp = f"**Showing Color**: {color_role.mention}"
+        if interaction.response.is_done():
+            await interaction.followup.send(resp)
+            return None
+        await interaction.response.send_message(resp)
+        return None
+
+    @app_commands.describe(member='Player to show stats of')
+    @show.command(name='stats', description='Show player stats')
+    async def stats(self, interaction: Interaction, member: Member) -> None:
+        color, coins, items = None, set(), set()
+        level, perms, state, vigor = '❌', '❌', '❌', '❌'
+        max_stacked = 0
+        for role in member.roles:
+            item_list = get_emoji_list(role.name)
+            if item_list:
+                item_key = item_list[0]
+                if item_key in self.gamer.setup.lives:
+                    vigor = role
+                elif item_key in self.gamer.setup.extra:
+                    coins.add(role.mention)
+                elif item_key in self.gamer.setup.perm_single_items:
+                    perms = role
+                else:
+                    max_stacked = int(len(item_list) == 3)
+                    items.add(role.mention)
+            elif self.color.id_exists(role.id):
+                color = role
+            elif role.name.isdigit():
+                level = role
+            elif role.name in self.gamer.setup.primary_roles:
+                state = role
+        if not color:
+            color = level
+        player = self.gamer.stats.get_player(member.id)
+        embed = Embed(
+            description=(
+                f"**Place**: {self.gamer.stats.place(member.id)}\n"
+                f"**Alias**: {member.mention}\n"
+                f"**Vigor**: {vigor.mention}\n"
+                f"**Level**: {level.mention}\n"
+                f"**State**: {state.mention}\n"
+                f"**Perm**: {perms}\n"
+                f"**Posts**: {player.posts}\n"
+                f"**React**: {player.reacts}\n"
+                f"**Score**: {player.score}\n"
+                f"**Color**: {color.mention}"),
+            color=color.color)
+        embed.set_thumbnail(url=member.display_avatar.url)
+        if coins:
+            embed.add_field(name='', value=f"**Coins**: {''.join(coins)}", inline=False)
+        if items:
+            embed.add_field(name='', value=f"**Items**: {''.join(items)}", inline=False)
+        if max_stacked:
+            embed.add_field(name='MAX STACKED', value='', inline=False)
+        await interaction.response.send_message(embed=embed)
+        return None
+
     trade = app_commands.Group(name='trade', description='Trade an item')
 
     paint = app_commands.Group(name='paint', description='Commands for managing colors')
 
     @app_commands.describe(
         color_name='Name of color to create', color_hex='Hex code in the form #RRGGBB')
-    @paint.command(name= 'make', description='Create a new color.')
+    @paint.command(name= 'make', description='Create a new color')
     async def make(self, interaction: Interaction, color_name: str, color_hex: str) -> None:
         paint_id = self.color.get(color_hex)
         if paint_id:
@@ -139,21 +222,6 @@ class GameBot(Base):
         await player.add_roles(color_role)
         await interaction.response.send_message(
             f"{interaction.user.mention} colored {player.mention} {color_role.mention}.")
-        return None
-
-    @app_commands.describe(color_role='Selected color')
-    @paint.command(name='show', description='Look up a color')
-    async def show(self, interaction: Interaction, color_role: Role) -> None:
-        if not self.color.id_exists(color_role.id):
-            await interaction.response.send_message(f"Color not found: {color_role.mention}.")
-            return None
-        filename = self.color.get(color_role.id).lstrip('#')
-        await self.gamer.setup.send_img(color_role, interaction.channel, filename, '', '')
-        resp = f"**Showing Color**: {color_role.mention}"
-        if interaction.response.is_done():
-            await interaction.followup.send(resp)
-            return None
-        await interaction.response.send_message(resp)
         return None
 
     delete = app_commands.Group(name='delete', description='Administrator commands',
