@@ -40,7 +40,9 @@ class Interface(View):
             vigor = self.roles[self.player.get_health_str()]
             embed = Embed(
                 title=f"Level {self.player.level} {replace_emoji(self.alias, '')}",
-                description=f"{level.mention}{vigor.mention}{power.mention}\n{self.description}",
+                description=(f"{level.mention}{vigor.mention}{power.mention}\n"
+                    f"**Kills**: 0 **Posts**: {self.player.posts} **Score**: {self.player.score}\n"
+                    f"{self.description}"),
                 color=level.color)
             file = File(f"database/images/{self.filename}.png", filename=f"{self.filename}.png")
             embed.set_image(url=f"attachment://{self.filename}.png")
