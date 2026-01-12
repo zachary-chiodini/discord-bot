@@ -11,7 +11,7 @@ from stats import Player
 class Interface(View):
 
     def __init__(self, alias: str, coins: int, description: str, filename: str,
-            items: List[str], player: Player, roles: Dict[str, Role]):
+            items: List[str], player: Player, roles: Dict[str, Role], webhook: Webhook):
         super().__init__()
         self.alias = alias
         self.coins = coins
@@ -21,6 +21,7 @@ class Interface(View):
         self.player = player
         self.roles = roles
         self.toggled = False
+        self.webhook = webhook
 
     @button(label="Fight!", style=ButtonStyle.grey)
     async def fight_button(self, interaction: Interaction, button: Button) -> None:
@@ -28,9 +29,10 @@ class Interface(View):
 
     @button(label='▼ Index', style=ButtonStyle.blurple)
     async def index_button(self, interaction: Interaction, button: Button) -> None:
+        await interaction.response.defer()
         if self.toggled:
             button.label = '▼ Index'
-            attach = {'embeds': [], 'attachments': []}
+            attach = {'attachments': [], 'embeds': []}
             self.toggled = False
         else:
             button.label = '▲ Index'
@@ -50,9 +52,9 @@ class Interface(View):
                 color=level.color)
             file = File(f"database/images/{self.filename}.png", filename=f"{self.filename}.png")
             embed.set_image(url=f"attachment://{self.filename}.png")
-            attach = {'embeds': [embed], 'attachments': [file]}
+            attach = {'attachments': [file], 'embeds': [embed]}
             self.toggled = True
-        await interaction.response.edit_message(**attach, view=self)
+        await self.webhook.edit_message(interaction.message.id, **attach, view=self)
         return None
 
 
@@ -70,7 +72,7 @@ class NPC:
 
     def __init__(self, player: Player, roles: Dict[str, Role], webhook: Webhook):
         self.interface = Interface(
-            self.alias, self.coins, self.index, self.thumbnail, self.items, player, roles)
+            self.alias, self.coins, self.index, self.thumbnail, self.items, player, roles, webhook)
         self.player = player
         self.roles = roles
         self.webhook = webhook
