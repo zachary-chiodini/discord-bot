@@ -10,12 +10,14 @@ from stats import Player
 
 class Interface(View):
 
-    def __init__(self, alias: str, description: str, filename: str, player: Player,
-            roles: Dict[str, Role]):
+    def __init__(self, alias: str, coins: int, description: str, filename: str,
+            items: List[str], player: Player, roles: Dict[str, Role]):
         super().__init__()
         self.alias = alias
+        self.coins = coins
         self.description = description
         self.filename = filename
+        self.items = items
         self.player = player
         self.roles = roles
         self.toggled = False
@@ -25,7 +27,7 @@ class Interface(View):
         return None
 
     @button(label='▼ Index', style=ButtonStyle.blurple)
-    async def bio_button(self, interaction: Interaction, button: Button) -> None:
+    async def index_button(self, interaction: Interaction, button: Button) -> None:
         if self.toggled:
             button.label = '▼ Index'
             attach = {'embeds': [], 'attachments': []}
@@ -38,11 +40,13 @@ class Interface(View):
             else:
                 power = self.roles['🎖️' * ((self.player.level // 33) + 1)]
             vigor = self.roles[self.player.get_health_str()]
+            coins = self.roles['🪙' * self.coins].mention
+            items = [self.roles[item].mention for item in self.items]
             embed = Embed(
                 title=f"Level {self.player.level} {replace_emoji(self.alias, '')}",
                 description=(f"{level.mention}{vigor.mention}{power.mention}\n"
                     f"**Kills**: 0 **Posts**: {self.player.posts} **Score**: {self.player.score}\n"
-                    f"{self.description}"),
+                    f"**Loot**: {coins} {', '.join(items)}\n{self.description}"),
                 color=level.color)
             file = File(f"database/images/{self.filename}.png", filename=f"{self.filename}.png")
             embed.set_image(url=f"attachment://{self.filename}.png")
@@ -65,7 +69,8 @@ class NPC:
     thumbnail: str
 
     def __init__(self, player: Player, roles: Dict[str, Role], webhook: Webhook):
-        self.interface = Interface(self.alias, self.index, self.thumbnail, player, roles)
+        self.interface = Interface(
+            self.alias, self.coins, self.index, self.thumbnail, self.items, player, roles)
         self.player = player
         self.roles = roles
         self.webhook = webhook
