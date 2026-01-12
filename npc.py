@@ -78,7 +78,7 @@ class NPC:
     async def send_passive_dialogue(self) -> None:
         async for message in self.webhook.channel.history(limit=1):
             if message.webhook_id == self.webhook.id:
-                await self.webhook.edit_message(message.id, view=None)
+                await self.webhook.edit_message(message.id, attachments=[], embed=None, view=None)
         await self.webhook.send(self.passive[randint(0, len(self.passive) - 1)],
             view=self.interface, allowed_mentions=AllowedMentions(roles=True))
         return None
