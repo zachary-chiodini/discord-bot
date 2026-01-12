@@ -1,9 +1,11 @@
 from discord import (app_commands, Embed, Guild, Intents, Interaction, Member, Message,
     MessageType, Object, Permissions, RawBulkMessageDeleteEvent, RawMessageDeleteEvent,
-    RawReactionActionEvent, Role)
+    RawReactionActionEvent, Role, TextChannel)
+from discord.errors import NotFound
 from discord.ext import commands
 
 from game import Game
+from npc import Skyevolutrex
 from paint import Paint
 from utils import get_emoji_list
 
@@ -14,16 +16,19 @@ class Base(commands.Cog):
 
     def __init__(self, bot: commands.Bot, guild: Guild):
         self.bot = bot
+        self.color = Paint()
         self.gamer = Game(guild)
         self.guild = guild
-        self.color = Paint()
+
+    async def cog_load(self) -> None:
+        await self.gamer.load_npcs()
+        return None
 
     @commands.Cog.listener()
     async def on_member_join(self, member: Member) -> None:
         await member.add_roles(*[self.gamer.roles['Level'][0], self.gamer.roles['💀'],
             self.gamer.roles['💎🪨🕹️'], self.gamer.roles['Outsider']])
-        await self.gamer.setup.send_img(
-            self.gamer.roles['Outsider'], member.guild.system_channel, 'meilanliu',
+        await self.gamer.setup.send_img(self.gamer.roles['Outsider'], 'meilanliu',
             f"Name: {member.name}\nAlias: {member.mention}", 'Outsider Identified', member)
         await member.guild.system_channel.send(f"{member.mention}, why are you here?")
         return None
@@ -80,6 +85,17 @@ class GameBot(Base):
 
     show = app_commands.Group(name='show', description='Display player attributes')
 
+    @show.command()
+    async def character(self, interaction: Interaction, channel: TextChannel) -> None:
+        await interaction.response.defer(ephemeral=True)
+        for webhook in await channel.webhooks():
+            if webhook.id in self.gamer.npcs:
+                await self.gamer.npcs[webhook.id].send_passive_dialogue()
+                await interaction.followup.send('Done.', ephemeral=True)
+                return None
+        await interaction.response.send_message(f"No characters in {channel}.", ephemeral=True)
+        return None
+
     @app_commands.describe(color_role='Selected color')
     @show.command(name='color', description='Look up a color')
     async def show_color(self, interaction: Interaction, color_role: Role) -> None:
@@ -87,7 +103,7 @@ class GameBot(Base):
             await interaction.response.send_message(f"Color not found: {color_role.mention}.")
             return None
         filename = self.color.get(color_role.id).lstrip('#')
-        await self.gamer.setup.send_img(color_role, interaction.channel, filename, '', '')
+        await self.gamer.setup.send_img(color_role, filename, '', '', channel=interaction.channel)
         resp = f"**Showing Color**: {color_role.mention}"
         if interaction.response.is_done():
             await interaction.followup.send(resp)
@@ -100,7 +116,7 @@ class GameBot(Base):
     async def stats(self, interaction: Interaction, member: Member) -> None:
         coins, items = set(), set()
         color_role = None
-        level, perms, state, vigor = '♾️', '♾️', '', '♾️'
+        level, perms, state, vigor = '♾️', '♾️', '♾️', '♾️'
         max_stacked = 0
         for role in member.roles:
             item_list = get_emoji_list(role.name)
@@ -123,8 +139,6 @@ class GameBot(Base):
                 state = role.mention
         if not color_role:
             color_role = member.top_role
-        if not state:
-            state = member.top_role.mention
         player = self.gamer.stats.get_player(member.id)
         embed = Embed(
             description=(
@@ -184,8 +198,8 @@ class GameBot(Base):
         role = await self.gamer.setup.role(
             color_name.title(), color_hex, ref_role=self.guild.me.top_role)
         self.color.update(role.id, color_hex)
-        await self.gamer.setup.send_img(role, interaction.channel, color_hex.lstrip('#').upper(),
-            f"**Created**: {role.mention}", '')
+        await self.gamer.setup.send_img(role, color_hex.lstrip('#').upper(),
+            f"**Created**: {role.mention}", '', channel=interaction.channel)
         await interaction.followup.send('**New Color Created**')
         return None
 
@@ -207,8 +221,8 @@ class GameBot(Base):
         role = await self.gamer.setup.role(
             f"{color1.name} {color2.name}", new_hex, ref_role=self.guild.me.top_role)
         self.color.update(role.id, new_hex)
-        await self.gamer.setup.send_img(role, interaction.channel, new_hex.lstrip('#').upper(),
-            f"**Created**: {role.mention}", '')
+        await self.gamer.setup.send_img(role, new_hex.lstrip('#').upper(),
+            f"**Created**: {role.mention}", '', channel=interaction.channel)
         await interaction.followup.send('**New Color Created**')
         return None
 
@@ -245,10 +259,13 @@ class GameBot(Base):
             before=interaction_message, check=lambda m: not m.pinned)
         n = 0
         async for message in interaction.channel.history(before=interaction_message):
-            await message.delete()
-            await interaction.followup.send(
-                f"Message remains: Deleted {message.id} (Rate limited)")
-            n += 1
+            try:
+                await message.delete()
+                await interaction.followup.send(
+                    f"Message remains: Deleted {message.id} (Rate limited)")
+                n += 1
+            except NotFound as e:
+                await interaction.followup.send(f"Error: {e}")
         await interaction.followup.send(f"Deleted {len(deleted) + 1} messages.")
         return None
 
@@ -301,7 +318,7 @@ class GameBot(Base):
                     owned_item_list = get_emoji_list(cur_role.name)
                     if len(owned_item_list) == 3:
                         await interaction.followup.send(
-                            f"{member.mention} already has the max stack {cur_role.mention}.")
+                            f"{member.mention} already has the max stack {cur_role.mention}")
                         return None
                     n_items = len(new_item_list) + len(owned_item_list)
                     if n_items > 3:
@@ -314,7 +331,7 @@ class GameBot(Base):
                 new_stack = item_role.name
         if extra_item_list:
             mention_str = ', '.join([self.gamer.roles[item].mention for item in extra_item_list])
-            await interaction.channel.send(f"{member.mention} already had item {mention_str}.")
+            await interaction.channel.send(f"{member.mention} already had item {mention_str}")
         points = 0
         created_item_list = new_item_list.copy()
         for item in extra_item_list:
@@ -334,7 +351,17 @@ class GameBot(Base):
     async def initialize(self, interaction: Interaction) -> None:
         await interaction.response.defer()
         resp = await self.gamer.setup.all()
+        await self.gamer.load_npcs()
         await interaction.followup.send(resp)
+        return None
+
+    @master.command()
+    async def spawn(self, interaction: Interaction, npc: str, channel: TextChannel) -> None:
+        if npc == 'skyevolutrex':
+            await self.gamer.spawn(channel, Skyevolutrex)
+            await interaction.followup.send('Created Skyevolutrex.')
+            return None
+        await interaction.response.send_message(f"{npc} does not exist.")
         return None
 
 

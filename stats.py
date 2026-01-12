@@ -34,6 +34,13 @@ class Player:
                 f"{self.reacts:0>13},"
                 f"{self.score:0>13}\n")
 
+    def get_health_str(self) -> str:
+        if self.health > 0:
+            return self.health * '❤️'
+        elif self.health < 0:
+            return abs(self.health) * '👻'
+        return '💀'
+
 
 class Stats:
 
@@ -56,15 +63,11 @@ class Stats:
         self._update(player_id)
         return None
 
-    def decrease_health(self, player_id: int) -> None:
-        player = self.get_player(player_id)
-        player.health -= 1
-        if player.health <= 0:
-            player.score = 0
-            player.level = 0
-            player.level_heart = 0
+    def create_player(self, player_id: int, health=0, level=0, level_heart=0) -> Player:
+        player = Player(len(self._stats), player_id, health, level, level_heart, 0, 0, 0)
+        self._stats[player_id] = player
         self._update(player)
-        return None
+        return player
 
     def delete(self, player_id: int) -> None:
         del self._stats[player_id]
@@ -74,19 +77,23 @@ class Stats:
                 f.write(player.format())
         return None
 
-    def get_health_str(self, player_id: int) -> str:
-        player = self.get_player(player_id)
-        if player.health > 0:
-            return player.health * '❤️'
-        elif player.health < 0:
-            return abs(player.health) * '👻'
-        return '💀'
-
     def get_player(self, player_id: int) -> Player:
         if player_id in self._stats:
             return self._stats[player_id]
-        self._create_player(player_id)
+        self.create_player(player_id)
         return self._stats[player_id]
+
+    def increase_health(self, player_id: int, points: int) -> None:
+        player = self.get_player(player_id)
+        if player.health == 10:
+            return None
+        player.health += points
+        if player.health <= 0:
+            player.score = 0
+            player.level = 0
+            player.level_heart = 0
+        self._update(player)
+        return None
 
     def increase_posts(self, player_id: int, points: int = 1) -> None:
         player = self.get_player(player_id)
@@ -117,13 +124,9 @@ class Stats:
         hearts = (player.level - player.level_heart) // 10
         if (player.health == 0) and (player.level_heart == 0) and (player.level > 0):
             # First level always gets a heart.
-            player.health = 1
-            self._update(player)
             levels += 1
         if hearts > 0:
-            player.health += hearts
             player.level_heart += hearts * 10
-            self._update(player)
             levels += hearts
         return levels
 
@@ -149,18 +152,6 @@ class Stats:
         else:
             suffix_key = suffix_key[-1]
         return str(place) + suffix_map[suffix_key]
-
-    def reset(self) -> None:
-        if self.file.exists():
-            self.file.write_text('')
-        self._stats = {}
-        return None
-
-    def _create_player(self, player_id: int) -> Player:
-        player = Player(len(self._stats), player_id, 0, 0, 0, 0, 0, 0)
-        self._stats[player_id] = player
-        self._update(player)
-        return player
 
     def _update(self, player: Player) -> None:
         data = player.format()

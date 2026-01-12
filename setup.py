@@ -2,8 +2,9 @@ from asyncio import sleep
 from typing import Dict, List, Optional, Union
 
 from discord import (CategoryChannel, Color, Embed, File, Guild, Member, Permissions,
-    PermissionOverwrite, Role, TextChannel)
+    PermissionOverwrite, Role, TextChannel, Webhook)
 
+from npc import NPC, Skyevolutrex
 
 class Item:
 
@@ -161,7 +162,7 @@ class Setup:
             note: str, role: Role, title: str) -> None:
         channel = await category.create_text_channel(
             name=title, overwrites=self.view_only_channel | {role: self.view})
-        await self.send_img(role, channel, filename, note, role.name)
+        await self.send_img(role, filename, note, role.name, channel=channel)
         return None
 
     async def all(self) -> str:
@@ -203,17 +204,17 @@ class Setup:
             overwrites=self.view_only_channel | self._main_perms() | {
                 self.roles['Outsider']: self.view})
         for name, item in self.admin.items():
-            await self.send_img(self.roles[name], channel, item.name,
+            await self.send_img(self.roles[name], item.name,
                 f"{item.desc}\n🅿️ **Points**: {item.points}\n🪙 **Coins**: {item.price}",
-                f"God-like Neko {name}")
+                f"God-like Neko {name}", channel=channel)
         for name, item in self.items.items():
-            await self.send_img(self.roles[name], channel, f"{item.name}1",
+            await self.send_img(self.roles[name], f"{item.name}1",
                 f"{item.desc}\n🅿️ **Points**: {item.points}\n🪙 **Coins**: {item.price}",
-                f"{item.name.title()} {name}")
+                f"{item.name.title()} {name}", channel=channel)
         for name, item in self.perm_single_items.items():
-            await self.send_img(self.roles[name], channel, item.name,
+            await self.send_img(self.roles[name], item.name,
                 f"{item.desc}\n🅿️ **Points**: {item.points}\n🪙 **Coins**: {item.price}",
-                f"{item.name.title()} {name}")
+                f"{item.name.title()} {name}", channel=channel)
         return None
 
     async def hospital(self) -> None:
@@ -226,7 +227,7 @@ class Setup:
             name='👥building-center💊', overwrites=hospital_perms)
         cafeteria = await category.create_text_channel(
             name='🍽️cafeteria🍊🥪🧃', overwrites=self.view_only_channel | hospital_perms)
-        await self.send_img(self.roles['Nurse'], cafeteria, 'sloppyjoes', '', '')
+        await self.send_img(self.roles['Nurse'], 'sloppyjoes', '', '', channel=cafeteria)
         await category.create_text_channel(
             name='🩻padded-cell📋🧑🏻‍🔬',
             overwrites=self.view_only_channel | hospital_perms | {
@@ -246,19 +247,20 @@ class Setup:
             channel = await category.create_text_channel(
                 name=name, overwrites=self.view_only_channel | {self.roles[name]: self.view})
             await self.send_img(
-                self.roles[name], channel, filename, self.roles[name].mention, '')
+                self.roles[name], filename, self.roles[name].mention, '', channel=channel)
         for name, filename in self.coins.items():
             channel = await category.create_text_channel(
                 name=name, overwrites=self.view_only_channel | {self.roles[name]: self.view})
-            await self.send_img(self.roles[name], channel, filename, self.roles[name].mention, '')
+            await self.send_img(
+                self.roles[name], filename, self.roles[name].mention, '', channel=channel)
         for name, item in self.perm_single_items.items():
             channel = await category.create_text_channel(
                 name=name, overwrites=self.view_only_channel | {self.roles[name]: self.view})
-            await self.send_img(self.roles[name], channel, item.name, self.roles[name].mention, '')
+            await self.send_img(self.roles[name], item.name, self.roles[name].mention, '', channel=channel)
         for name, item in self.perm_stacks.items():
             channel = await category.create_text_channel(
                 name=name, overwrites=self.view_only_channel | {self.roles[name]: self.view})
-            await self.send_img(self.roles[name], channel, item.name, self.roles[name].mention, '')
+            await self.send_img(self.roles[name], item.name, self.roles[name].mention, '', channel=channel)
         category = await self.guild.create_category('🧰⚙️Tactical Items📕🛠️🪖')
         for name, item in self.items.items():
             for i in range(1, 4):
@@ -267,8 +269,8 @@ class Setup:
                     name=role_name, overwrites=self.view_only_channel | {
                         self.roles[role_name]: self.view})
                 await self.send_img(
-                    self.roles[role_name], channel, f"{item.name}{i}",
-                    self.roles[role_name].mention, '')
+                    self.roles[role_name], f"{item.name}{i}", self.roles[role_name].mention,
+                    '', channel=channel)
         return None
 
     async def main_channels(self) -> None:
@@ -286,7 +288,8 @@ class Setup:
         outsider_perms = self._main_perms() | {self.roles['Outsider']: self.view}
         category = await self.guild.create_category(
             '🏕️🦌Outskirts🌿🐦🌳🌰🐿️', overwrites=outsider_perms)
-        await category.create_text_channel(name='🐾🍂wilderness⛰️🍄')
+        channel = await category.create_text_channel(name='🐾🍂wilderness⛰️🍄')
+        await self.webhook(channel, Skyevolutrex)
         system_channel = await category.create_text_channel(name='🌀🪞gay-portal🪞🌀')
         await self.guild.edit(system_channel=system_channel)
         await category.create_voice_channel(name='🐾🍂wilderness⛰️🍄')
@@ -301,7 +304,7 @@ class Setup:
             name='👥the-yard🏋🏿👊🏿🤬', overwrites=prison_perms)
         cafeteria = await category.create_text_channel(
             name='🍽️chow-hall🫓🥣🥔', overwrites=self.view_only_channel | prison_perms)
-        await self.send_img(self.roles['Guard'], cafeteria, 'prisonfood', '', '')
+        await self.send_img(self.roles['Guard'], 'prisonfood', '', '', channel=cafeteria)
         await category.create_text_channel(
             name='🕳️the-hole🫷🏿😫🫸🏿', overwrites=self.view_only_channel | prison_perms | {
                 self.roles['Solitary']: self.post_limited, self.roles['Guard']: self.post_and_view,
@@ -348,15 +351,24 @@ class Setup:
             await category.create_text_channel(name=f"⛔{rule}🗃️")
         return None
 
-    async def send_img(self, color: Role, channel: TextChannel, filename: str,
-            note: str, title: str, author: Optional[Member] = None) -> None:
+    async def send_img(
+            self, color: Role, filename: str, note: str, title: str,
+            author: Optional[Member] = None, channel: TextChannel = None) -> None:
         file = File(f"database/images/{filename}.png", filename=f"{filename}.png")
         embed = Embed(title=title, description=note, color=color.color)
         embed.set_image(url=f"attachment://{filename}.png")
         if author:
             embed.set_author(name=author.display_name, icon_url=author.display_avatar.url)
+        if not channel:
+            channel = self.guild.system_channel
         await channel.send(embed=embed, file=file)
         return None
+
+    async def webhook(self, channel: TextChannel, npc: type[NPC]) -> Webhook:
+        with open(f"database/images/{npc.avatar}.png", 'rb') as f:
+            avatar_bytes = f.read()
+        webhook = await channel.create_webhook(name=npc.alias, avatar=avatar_bytes)
+        return webhook
 
     async def _all_channels(self) -> None:
         await self.bulletin()
