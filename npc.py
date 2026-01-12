@@ -12,7 +12,7 @@ class Interface(View):
 
     def __init__(self, alias: str, coins: int, description: str, filename: str,
             items: List[str], player: Player, roles: Dict[str, Role], webhook: Webhook):
-        super().__init__()
+        super().__init__(timeout=None)
         self.alias = alias
         self.coins = coins
         self.description = description
