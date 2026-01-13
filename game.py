@@ -1,9 +1,9 @@
 from random import randint
-from typing import Dict, Generator, Union
+from typing import Generator, Union
 
 from discord import Color, Embed, File, Guild, Member, TextChannel, User
 
-from npc import NPC, Skyevolutrex
+from npc import NPC, GoldNeko, Skyevolutrex
 from setup import Setup
 from stats import Stats
 
@@ -13,11 +13,10 @@ class Game:
     Gamer = Union[Member, User]
 
     def __init__(self, guild: Guild):
-        self.npcs: Dict[int, NPC] = {}
+        self.npcs = {GoldNeko.alias: GoldNeko, Skyevolutrex.alias: Skyevolutrex}
         self.roles = {}
         self.setup = Setup(guild, self.roles)
         self.stats = Stats()
-        self._npcs = {Skyevolutrex.alias: Skyevolutrex}
 
     async def add_heart(self, member: Gamer) -> None:
         player = self.stats.get_player(member.id)
@@ -137,9 +136,9 @@ class Game:
 
     async def load_npcs(self) -> None:
         for webhook in await self.setup.guild.webhooks():
-            if webhook.name in self._npcs:
+            if webhook.name in self.npcs:
                 player = self.stats.get_player(webhook.id)
-                self.npcs[webhook.id] = self._npcs[webhook.name](player, self.roles, webhook)
+                self.npcs[webhook.name] = self.npcs[webhook.name](player, self.roles, webhook)
         return None
 
     async def remove_heart(self, member: Gamer) -> None:
@@ -209,6 +208,6 @@ class Game:
         webhook = await self.setup.webhook(channel, npc)
         player = self.stats.create_player(webhook.id)
         new_npc = npc(player, self.roles, webhook)
-        self.npcs[webhook.id] = new_npc
+        self.npcs[webhook.name] = new_npc
         await new_npc.send_passive_dialogue()
         return None

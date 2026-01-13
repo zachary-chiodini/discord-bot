@@ -1,11 +1,13 @@
+from random import randint
+
 from discord import (app_commands, Embed, Guild, Intents, Interaction, Member, Message,
     MessageType, Object, Permissions, RawBulkMessageDeleteEvent, RawMessageDeleteEvent,
     RawReactionActionEvent, Role, TextChannel)
 from discord.errors import NotFound
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from game import Game
-from npc import Skyevolutrex
+from npc import Skyevolutrex, GoldNeko
 from paint import Paint
 from utils import get_emoji_list
 
@@ -19,9 +21,24 @@ class Base(commands.Cog):
         self.color = Paint()
         self.gamer = Game(guild)
         self.guild = guild
+        self.game_loop.start()
 
     async def cog_load(self) -> None:
+        self.game_loop.cancel()
         await self.gamer.load_npcs()
+        return None
+
+    @tasks.loop(hours=8)
+    async def game_loop(self) -> None:
+        if randint(0, 1):
+            await self.gamer.npcs.get(Skyevolutrex.alias).send_passive_dialogue()
+        else:
+            await self.gamer.npcs.get(GoldNeko.alias).send_passive_dialogue()
+        return None
+
+    @game_loop.before_loop
+    async def before_game_loop(self) -> None:
+        await self.bot.wait_until_ready()
         return None
 
     @commands.Cog.listener()
@@ -30,7 +47,12 @@ class Base(commands.Cog):
             self.gamer.roles['💎🪨🕹️'], self.gamer.roles['Outsider']])
         await self.gamer.setup.send_img(self.gamer.roles['Outsider'], 'meilanliu',
             f"Name: {member.name}\nAlias: {member.mention}", 'Outsider Identified', member)
-        await member.guild.system_channel.send(f"{member.mention}, why are you here?")
+        skyevolutrex = self.gamer.npcs.get(Skyevolutrex.alias)
+        await skyevolutrex.webhook.send(f"{member.mention}, why are you here?")
+        await skyevolutrex.send_passive_dialogue()
+        goldneko = self.gamer.npcs.get(GoldNeko.alias)
+        await goldneko.webhook.send(f"An outsider arrived: {member.mention}.")
+        await goldneko.send_passive_dialogue()
         return None
 
     @commands.Cog.listener()
@@ -89,11 +111,11 @@ class GameBot(Base):
     async def character(self, interaction: Interaction, channel: TextChannel) -> None:
         await interaction.response.defer(ephemeral=True)
         for webhook in await channel.webhooks():
-            if webhook.id in self.gamer.npcs:
-                await self.gamer.npcs[webhook.id].send_passive_dialogue()
+            if webhook.name in self.gamer.npcs:
+                await self.gamer.npcs[webhook.name].send_passive_dialogue()
                 await interaction.followup.send('Done.', ephemeral=True)
                 return None
-        await interaction.response.send_message(f"No characters in {channel}.", ephemeral=True)
+        await interaction.followup.send(f"No characters in {channel}.", ephemeral=True)
         return None
 
     @app_commands.describe(color_role='Selected color')
@@ -356,12 +378,15 @@ class GameBot(Base):
         return None
 
     @master.command()
-    async def spawn(self, interaction: Interaction, npc: str, channel: TextChannel) -> None:
-        if npc == 'skyevolutrex':
-            await self.gamer.spawn(channel, Skyevolutrex)
-            await interaction.followup.send('Created Skyevolutrex.')
+    async def spawn(self, interaction: Interaction, name: str, channel: TextChannel) -> None:
+        str_map = {'gold neko': GoldNeko, 'skyevolutrex': Skyevolutrex}
+        if name in str_map:
+            await interaction.response.defer()
+            npc_obj = self.gamer.npcs.get(str_map[name])
+            await self.gamer.spawn(channel, npc_obj)
+            await interaction.followup.send(f"Created {npc_obj.alias}.")
             return None
-        await interaction.response.send_message(f"{npc} does not exist.")
+        await interaction.response.send_message(f"{name} does not exist.")
         return None
 
 

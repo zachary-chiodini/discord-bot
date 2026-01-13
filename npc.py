@@ -100,3 +100,19 @@ class Skyevolutrex(NPC):
 
     def __init__(self, player: Player, roles: Dict, webhook: Webhook):
         super().__init__(player, roles, webhook)
+
+
+class GoldNeko(NPC):
+
+    alias = '🐈Gold Neko'
+    avatar = 'goldneko'
+    bias = 0.5
+    coins = 5
+    index = "A radiant gold neko"
+    items = ['🐈', '🔪', '🍅']
+    passive = ['Meow.', 'Mrow.', 'Nya!', 'Mrrp!', 'Yeowr.', 'Raow!']
+    points = 99999
+    thumbnail = 'goldneko'
+
+    def __init__(self, player: Player, roles: Dict, webhook: Webhook):
+        super().__init__(player, roles, webhook)

@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Union
 from discord import (CategoryChannel, Color, Embed, File, Guild, Member, Permissions,
     PermissionOverwrite, Role, TextChannel, Webhook)
 
-from npc import NPC, Skyevolutrex
+from npc import NPC, GoldNeko, Skyevolutrex
 
 class Item:
 
@@ -182,7 +182,7 @@ class Setup:
         note = (f"⭐ Your're {self.roles['Hospitalized'].mention} 👩🏻‍⚕️💉\n"
             f"⭐ Speak to a {self.roles['Nurse'].mention} ☝🤓")
         await self.alert_channel(
-            bulletin, 'hospital', note, self.roles['Hospitalized'], '😵-hospitalized⚠️')
+            bulletin, 'hospital', note, self.roles['Hospitalized'], '💀-hospitalized⚠️')
         note = (f"⭐ Your're {self.roles['Psychotic'].mention} 📋🩻\n"
             f"⭐ Speak to a {self.roles['Scientist'].mention} ☝🤓")
         await self.alert_channel(
@@ -194,7 +194,7 @@ class Setup:
         note = (f"⭐ Your're in {self.roles['Solitary'].mention} 🔒⛓️\n"
             f"⭐ Speak to a {self.roles['Priest'].mention} ☝🤓")
         await self.alert_channel(
-            bulletin, 'solitary', note, self.roles['Solitary'], '💀-solitary⚠️')
+            bulletin, 'solitary', note, self.roles['Solitary'], '👤-solitary⚠️')
         note = (f"⭐ Your're a {self.roles['Ghost'].mention} 🕊️🪦\n"
             f"⭐ Speak to a {self.roles['Ghost'].mention} ☝🤓")
         await self.alert_channel(
@@ -276,7 +276,9 @@ class Setup:
     async def main_channels(self) -> None:
         category = await self.guild.create_category(
             '🏰🐉Town Square🏤🏦🌈🏨', overwrites=self._main_perms())
-        for name in ['🏙️center👥⛲🦢🏞️', '🎼orchestra👥📻🎵', '🎞️playhouse📽️🎬🎭',
+        channel = await category.create_text_channel(name='🏙️center👥⛲🦢🏞️')
+        await self.webhook(channel, GoldNeko)
+        for name in ['🎼orchestra👥📻🎵', '🎞️playhouse📽️🎬🎭',
                 '🌃blue🍇bar🍺🥃🥜', '💨blue🫐smoke🌬️🍃', '🏚️blue🟦block🍚🗞️',
                 '🫂emotional-supp❤️‍🩹']:
             await category.create_text_channel(name=name)
