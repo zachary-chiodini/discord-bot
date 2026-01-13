@@ -1,6 +1,6 @@
 from random import randint
 
-from discord import (app_commands, Embed, Guild, Intents, Interaction, Member, Message,
+from discord import (app_commands, Embed, File, Guild, Intents, Interaction, Member, Message,
     MessageType, Object, Permissions, RawBulkMessageDeleteEvent, RawMessageDeleteEvent,
     RawReactionActionEvent, Role, TextChannel)
 from discord.errors import NotFound
@@ -21,11 +21,14 @@ class Base(commands.Cog):
         self.color = Paint()
         self.gamer = Game(guild)
         self.guild = guild
-        self.game_loop.start()
 
     async def cog_load(self) -> None:
-        self.game_loop.cancel()
         await self.gamer.load_npcs()
+        await self.game_loop.start()
+        return None
+
+    def cog_unload(self) -> None:
+        self.game_loop.cancel()
         return None
 
     @tasks.loop(hours=4)
@@ -51,7 +54,7 @@ class Base(commands.Cog):
         await skyevolutrex.webhook.send(f"{member.mention}, why are you here?")
         await skyevolutrex.send_passive_dialogue()
         goldneko = self.gamer.npcs.get(GoldNeko.alias)
-        await goldneko.webhook.send(f"An outsider arrived: {member.mention}.")
+        await goldneko.webhook.send(f"An outsider has arrived: {member.mention}.")
         await goldneko.send_passive_dialogue()
         return None
 
@@ -304,7 +307,7 @@ class GameBot(Base):
 
     @master.command()
     async def create(self, interaction: Interaction, member: Member, item_role: Role) -> None:
-        # Items roles are named emojis
+        # Items roles are emojis
         new_item_list = get_emoji_list(item_role.name)
         if not new_item_list:
             await interaction.response.send_message(f"{item_role.mention} is not an item.")
@@ -375,6 +378,37 @@ class GameBot(Base):
         resp = await self.gamer.setup.all()
         await self.gamer.load_npcs()
         await interaction.followup.send(resp)
+        return None
+
+    @master.command()
+    async def liberate(self, interaction: Interaction, member: Member) -> None:
+        if member.get_role(self.gamer.roles['TOWG']):
+            await interaction.response.send_message(f"{member.mention} is already liberated.")
+            return None
+        outsider = member.get_role(self.gamer.roles['Outsider'])
+        prisoner = member.get_role(self.gamer.roles['Prisoner'])
+        if outsider:
+            cur_role = outsider
+        elif prisoner:
+            cur_role = prisoner
+        else:
+            await interaction.response.send_message(
+                f"Only {outsider.mention} or {prisoner.mention} can be liberated.")
+            return None
+        new_role = self.gamer.roles['TOWG']
+        await member.remove_roles(cur_role)
+        await member.add_roles(new_role)
+        image = 'liberated'
+        file = File(f"database/images/{image}.png", filename=f"{image}.png")
+        embed = Embed(title='Liberation',
+            description=f"{member.mention} is a liberated {new_role.mention} citizen!",
+            color=member.top_role.color)
+        embed.set_image(url=f"attachment://{image}.png")
+        embed.set_author(name=member.display_name, icon_url=member.display_avatar.url)
+        await member.guild.system_channel.send(embed=embed, file=file)
+        goldneko: GoldNeko = self.gamer.npcs.get(GoldNeko.alias)
+        await goldneko.webhook.send(f"{member.mention} has been liberated!")
+        await goldneko.send_passive_dialogue()
         return None
 
     @master.command()
