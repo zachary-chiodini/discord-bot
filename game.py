@@ -57,7 +57,7 @@ class Game:
             await member.add_roles(new_role)
         self.stats.increase_health(member.id, 1)
         file = File(f"database/images/{image}.png", filename=f"{image}.png")
-        embed = Embed(title=title, description=f"{name} {note}\n**Vigor**{new_role.mention}", color=new_role.color)
+        embed = Embed(title=title, description=f"{name} {note}\n**Vigor**: {new_role.mention}", color=new_role.color)
         embed.set_image(url=f"attachment://{image}.png")
         embed.set_author(name=author, icon_url=avatar.url)
         await self.setup.guild.system_channel.send(embed=embed, file=file)
