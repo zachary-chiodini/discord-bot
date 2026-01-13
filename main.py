@@ -28,7 +28,7 @@ class Base(commands.Cog):
         await self.gamer.load_npcs()
         return None
 
-    @tasks.loop(hours=8)
+    @tasks.loop(hours=4)
     async def game_loop(self) -> None:
         if randint(0, 1):
             await self.gamer.npcs.get(Skyevolutrex.alias).send_passive_dialogue()

@@ -94,12 +94,13 @@ class Skyevolutrex(NPC):
     coins = 5
     index = "A creature that resembles a dog with wings, an orange hooked beak with teeth-like serrations and blue fur-like protofeathers. It's a nocturnal, small-pack hexapod with hollow bones that inhabits the caves of high-altitude forest cliffs in The Other World."
     items = ['🪬']
-    passive = ['EEK!', 'RAW!', 'BWARK!', 'SQAWK!', 'CAW!']
+    passive = ['EEK!', 'RAW!', 'BWARK!', 'SQAWK!', 'CAW!', "There's a city beyond the market, if you are liberated. 🦊🐦‍⬛"]
     points = 3000
     thumbnail = 'wildskyevolutrex'
 
     def __init__(self, player: Player, roles: Dict, webhook: Webhook):
         super().__init__(player, roles, webhook)
+        self.passive.append(f"Use {self.roles['🪬'].mention} to enter the Church.")
 
 
 class GoldNeko(NPC):
@@ -110,9 +111,15 @@ class GoldNeko(NPC):
     coins = 5
     index = "A radiant gold neko"
     items = ['🐈', '🔪', '🍅']
-    passive = ['Meow.', 'Mrow.', 'Nya!', 'Mrrp!', 'Yeowr.', 'Raow!']
+    passive = ['Meow.', 'Mrow.', 'Nya!', 'Mrrp!', 'Yeowr.', 'Raow!',
+        'You can buy items from the market with /buy. ☝🐱', 'You can trade items with /trade. ☝🐱',
+        'You can paint yourself and others different colors with /paint. ☝🐱',
+        'You can see a members stats with /show stats. ☝🐱']
     points = 99999
     thumbnail = 'goldneko'
 
     def __init__(self, player: Player, roles: Dict, webhook: Webhook):
         super().__init__(player, roles, webhook)
+        self.passive.append(f"I'm gonna stab someone {self.roles['🔪'].mention}!")
+        self.passive.append(f"I don't throw tomatoes {self.roles['🍅'].mention}.")
+        self.passive.append(f"This Neko is imbued with God-like prowess: {self.roles['🐈'].mention}")
