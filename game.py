@@ -1,11 +1,14 @@
 from __future__ import annotations
+from io import BytesIO
 from random import randint, random
-from typing import List, Union
+from typing import List, Optional, Union
 
 from discord import (AllowedMentions, ButtonStyle, Color, Embed, File, Interaction, Guild, Member,
     Role, TextChannel, User, Webhook)
+from discord.errors import NotFound
 from discord.ui import button, Button, View
 from emoji import replace_emoji
+from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 
 from setup import Setup
 from stats import Stats
@@ -152,14 +155,12 @@ class Game:
                 self.npcs[webhook.name] = self.npcs[webhook.name](self, webhook)
         return None
 
-    async def remove_heart(self, gamer: Gamer) -> None:
+    async def remove_heart(self, gamer: Gamer, channel: Optional[TextChannel] = None, killer: str = '') -> None:
         player = self.stats.get_player(gamer.id)
         if player.health == -3:
             if isinstance(gamer, Member):
                 await gamer.kick(reason='Dead')
                 return None
-            await gamer.delete()
-            return None
         if player.health == 1:
             new_role = self.roles['💀']
             image = 'skull'
@@ -168,6 +169,29 @@ class Game:
             new_role = self.roles['❤️' * (player.health - 1)]
             image = f"heart{player.health - 1}"
             title, note = 'Ouch', f"lost -1 {self.roles['❤️'].mention}!"
+        elif isinstance(gamer, Webhook):
+            # NPCs do not turn into ghosts.
+            npc = self.npcs.get(gamer.name)
+            await npc.die(killer)
+            return None
+        elif player.health == 0:
+            new_role = self.roles['👻']
+            image = 'ghost1'
+            title, note = f"🪦Dead {gamer.display_name}💐", 'has died!'
+            embed = Embed(title=title,
+                description=f"Killed by {killer}  {3 * self.roles['💀'].mention}",
+                color=Color.dark_red())
+            avatar_bytes = await gamer.display_avatar.replace(format='png', size=512).read()
+            with Image.open(BytesIO(avatar_bytes)).convert('RGBA') as avatar_img:
+                avatar_img = ImageOps.grayscale(avatar_img.convert("RGB")).convert("RGB")
+                avatar_img = avatar_img.filter(ImageFilter.GaussianBlur(2))
+                avatar_img = ImageEnhance.Contrast(avatar_img).enhance(2)
+                avatar_img = ImageEnhance.Brightness(avatar_img).enhance(0.80)
+                out = BytesIO()
+                avatar_img.save(out, format='PNG')
+                out.seek(0)
+            embed.set_image(url="attachment://grave.png")
+            await channel.send(embed=embed, file=File(out, filename='grave.png'))
         else:
             new_role = self.roles['👻' * abs(player.health - 1)]
             image = f"ghost{abs(player.health - 1)}"
@@ -211,8 +235,7 @@ class Interface(View):
         super().__init__(timeout=None)
         self.gamer = game
         self.npc = npc
-        self.fight_toggled = False
-        self.index_toggled = False
+        self.toggled = False
 
     @button(label='⚔️', style=ButtonStyle.danger)
     async def attack_button(self, interaction: Interaction, button: Button) -> None:
@@ -243,16 +266,16 @@ class Interface(View):
         counter_points = player.defend(counter)
         points_off = attack_points - counter_points
         points_def = counter_points - attack_points
-        if not self.npc.player.score:
-            attack_points = 0
-            points_off = 0
-        elif points_off > self.npc.player.score:
-            points_off = self.npc.player.score
-        if not player.score:
-            counter_points = 0
-            points_def = 0
+        if (player.score == 0) and (points_def > 0):
+            counter_points, points_def = 0, 0
+            await self.gamer.remove_heart(interaction.user, interaction.channel, self.npc.webhook.name)
         elif points_def > player.score:
             points_def = player.score
+        if (self.npc.player.score == 0) and (points_off > 0):
+            attack_points, points_off = 0, 0
+            await self.gamer.remove_heart(self.npc.webhook, killer=interaction.user.display_name)
+        elif points_off > self.npc.player.score:
+            points_off = self.npc.player.score
         tot_attack += attack_points
         tot_counter += counter_points
         embed1 = Embed(title=f"Level {player.level} {offender}",
@@ -266,10 +289,13 @@ class Interface(View):
         embed2.add_field(name='☠️Counter', value=counter)
         embed2.add_field(name='☠️Damage', value=counter_points)
         embed2.add_field(name='☠️Total', value=tot_counter)
-        embeds = [embed1, embed2]
         await self.gamer.increase_score(interaction.user, points_off)
         await self.gamer.increase_score(self.npc.webhook, points_def)
-        await self.npc.webhook.edit_message(interaction.message.id, embeds=embeds, view=self)
+        try:
+            await self.npc.webhook.edit_message(interaction.message.id, embeds=[embed1, embed2], view=self)
+        except NotFound:
+            # NPC was killed.
+            await self.gamer.increase_score(interaction.user, self.npc.points)
         return None
 
     @button(label='🫳', style=ButtonStyle.primary)
@@ -280,10 +306,10 @@ class Interface(View):
     @button(label='🔍', style=ButtonStyle.gray)
     async def index_button(self, interaction: Interaction, button: Button) -> None:
         await interaction.response.defer()
-        if self.index_toggled:
+        if self.toggled:
             button.label = '🔍'
             attach = {'attachments': [], 'embeds': []}
-            self.index_toggled = False
+            self.toggled = False
         else:
             button.label = '🔺'
             items = []
@@ -314,7 +340,7 @@ class Interface(View):
                 filename=f"{self.npc.thumbnail}.png")
             embed.set_image(url=f"attachment://{self.npc.thumbnail}.png")
             attach = {'attachments': [file], 'embeds': [embed]}
-            self.index_toggled = True
+            self.toggled = True
         await self.npc.webhook.edit_message(interaction.message.id, **attach, view=self)
         return None
 
@@ -325,6 +351,7 @@ class NPC:
     armor = 0
     avatar: str
     coins: int
+    deathnail: str
     index: str
     items: List[str]
     passive_dialogue: List[str]
@@ -342,6 +369,17 @@ class NPC:
     def defend(self, damage: int) -> int:
         return damage - int(damage * random()**1.5)
 
+    async def die(self, killer: str) -> None:
+        channel = self.webhook.channel
+        await self.webhook.delete()
+        embed = Embed(title=f"🪦Dead {replace_emoji(self.alias, '')}💐",
+            description=f"Killed by {killer} {3 * self.interface.gamer.roles['💀'].mention}",
+            color=Color.dark_red())
+        embed.set_image(url=f"attachment://{self.deathnail}.png")
+        file = File(f"database/images/{self.deathnail}.png", filename=f"{self.deathnail}.png")
+        await channel.send(embed=embed, file=file)
+        return None
+
     async def send_passive_dialogue(self) -> None:
         async for message in self.webhook.channel.history(limit=1):
             if message.webhook_id == self.webhook.id:
@@ -351,39 +389,12 @@ class NPC:
         return None
 
 
-class Skyevolutrex(NPC):
-
-    alias = '🐾Wild Skyevolutrex'
-    avatar = 'wildskyevolutrex'
-    coins = 5
-    index = "A creature that resembles a dog with wings, an orange hooked beak with teeth-like serrations and blue fur-like protofeathers. It's a nocturnal, small-pack hexapod with hollow bones that inhabits the caves of high-altitude forest cliffs in The Other World."
-    items = ['🪬']
-    passive_dialogue = ['EEK!', 'RAW!', 'BWARK!', 'SQAWK!', 'CAW!', 'SKREE!', "There's a city beyond the market 🦊🐦‍⬛"]
-    points = 3000
-    thumbnail = 'wildskyevolutrex'
-
-    def __init__(self, game: Game, webhook: Webhook):
-        super().__init__(game, webhook)
-        self.passive_dialogue.append(f"Use {game.roles['🪬'].mention} to enter the Church.")
-
-
-class MommySlime(NPC):
-
-    alias = '🦠Mommy Slime'
-    avatar = 'mommyslime'
-    coins = 0
-    index = 'A slimey and smelly amorphous creature with a single gaping orifice.'
-    items = ['☣️', '☢️', '🍅']
-    passive_dialogue = ['Squish!', 'Splosh!', 'Plop!', 'Slurp', 'Sploosh!', 'Schlork!', 'Slush', 'Gurgle', 'Glug', 'Blurp!', 'Blub']
-    points = 500
-    thumbnail = 'mommyslime'
-
-
 class BabySlime(NPC):
 
     alias = '🍼Baby Slime'
     avatar = 'babyslime'
     coins = 0
+    deathnail = 'babyslimedead'
     index = "It's just a little baby."
     items = ['☣️']
     passive_dialogue = ['Waah!', 'Boohoo!', 'Sniffle', 'Barf!', 'Bleah!', 'Hiccup!', 'Argh!', 'Mommy!', 'Help!', 'Meow']
@@ -397,10 +408,41 @@ class GoldNeko(NPC):
     armor = 1000
     avatar = 'goldneko'
     coins = 5
+    deathnail = 'goldnekodead'
     index = "A radiant gold neko"
     items = ['🐈', '🔪', '🍅']
     passive_dialogue = ['Meow.', 'Mrow.', 'Nya!', 'Mrrp!', 'Yeowr.', 'Raow!',
         'You can paint yourself and others different colors with /paint ☝🐱',
         'You can see a members stats with /show stats ☝🐱']
-    points = 99999
+    points = 10000
     thumbnail = 'goldneko'
+
+
+class MommySlime(NPC):
+
+    alias = '🦠Mommy Slime'
+    avatar = 'mommyslime'
+    coins = 0
+    deathnail = 'mommyslimedead'
+    index = 'A slimey and smelly amorphous creature with a single gaping orifice.'
+    items = ['☣️', '☢️', '🍅']
+    passive_dialogue = ['Squish!', 'Splosh!', 'Plop!', 'Slurp', 'Sploosh!', 'Schlork!', 'Slush', 'Gurgle', 'Glug', 'Blurp!', 'Blub']
+    points = 500
+    thumbnail = 'mommyslime'
+
+
+class Skyevolutrex(NPC):
+
+    alias = '🐾Wild Skyevolutrex'
+    avatar = 'wildskyevolutrex'
+    coins = 5
+    deathnail = 'wildskyevolutrexdead'
+    index = "A creature that resembles a dog with wings, an orange hooked beak with teeth-like serrations and blue fur-like protofeathers. It's a nocturnal, small-pack hexapod with hollow bones that inhabits the caves of high-altitude forest cliffs in The Other World."
+    items = ['🪬']
+    passive_dialogue = ['EEK!', 'RAW!', 'BWARK!', 'SQAWK!', 'CAW!', 'SKREE!', "There's a city beyond the market 🦊🐦‍⬛"]
+    points = 5000
+    thumbnail = 'wildskyevolutrex'
+
+    def __init__(self, game: Game, webhook: Webhook):
+        super().__init__(game, webhook)
+        self.passive_dialogue.append(f"Use {game.roles['🪬'].mention} to enter the Church.")
