@@ -3,8 +3,8 @@ from io import BytesIO
 from random import randint
 from zoneinfo import ZoneInfo
 
-from discord import (app_commands, Embed, File, Guild, Intents, Interaction, Member, Message,
-    MessageType, Object, Permissions, RawBulkMessageDeleteEvent, RawMessageDeleteEvent,
+from discord import (app_commands, Color, Embed, File, Guild, Intents, Interaction, Member,
+    Message, MessageType, Object, Permissions, RawBulkMessageDeleteEvent, RawMessageDeleteEvent,
     RawReactionActionEvent, Role, TextChannel)
 from discord.errors import NotFound
 from emoji import replace_emoji
@@ -37,10 +37,8 @@ class Base(commands.Cog):
 
     @tasks.loop(hours=8)
     async def game_loop(self) -> None:
-        if randint(0, 1):
-            await self.gamer.npcs.get(Skyevolutrex.alias).send_passive_dialogue()
-        else:
-            await self.gamer.npcs.get(GoldNeko.alias).send_passive_dialogue()
+        _, npc = list(self.gamer.npcs.items())[randint(0, len(self.gamer.npcs) - 1)]
+        await npc.send_passive_dialogue()
         return None
 
     @game_loop.before_loop
@@ -108,7 +106,7 @@ class GameBot(Base):
 
     buy = app_commands.Group(name='buy', description='Buy a purchasable item')
 
-    gift = app_commands.Group(name='gift', description='Gift an item')
+    gift = app_commands.Group(name='gift', description='Gift an item or points')
 
     sell = app_commands.Group(name='sell', description='Sell a purchasable item')
 
@@ -191,8 +189,6 @@ class GameBot(Base):
         await interaction.response.send_message(embed=embed)
         return None
 
-    trade = app_commands.Group(name='trade', description='Trade an item')
-
     paint = app_commands.Group(name='paint', description='Commands for managing colors')
 
     @app_commands.describe(
@@ -231,6 +227,19 @@ class GameBot(Base):
         await interaction.followup.send('**New Color Created**')
         return None
 
+    @app_commands.describe(member='Member to color', color_role='Selected color')
+    @paint.command(name='member', description='Color yourself or another member')
+    async def member(self, interaction: Interaction, member: Member, color_role: Role) -> None:
+        if not self.color.id_exists(color_role.id):
+            await interaction.response.send_message(f"Color not found: {color_role.mention}.")
+            return None
+        await member.remove_roles(
+            *[role for role in member.roles if self.color.id_exists(role.id)])
+        await member.add_roles(color_role)
+        await interaction.response.send_message(
+            f"{interaction.user.mention} colored {member.mention} {color_role.mention}.")
+        return None
+
     @app_commands.describe(color1='First color to mix', color2='Second color to mix')
     @paint.command(name='mix', description='Mix two colors and create a new one')
     async def mix(self, interaction: Interaction, color1: Role, color2: Role) -> None:
@@ -254,17 +263,53 @@ class GameBot(Base):
         await interaction.followup.send('**New Color Created**')
         return None
 
-    @app_commands.describe(player='Player to color', color_role='Selected color')
-    @paint.command(name='player', description='Color yourself or another player')
-    async def player(self, interaction: Interaction, player: Member, color_role: Role) -> None:
-        if not self.color.id_exists(color_role.id):
-            await interaction.response.send_message(f"Color not found: {color_role.mention}.")
-            return None
-        await player.remove_roles(
-            *[role for role in player.roles if self.color.id_exists(role.id)])
-        await player.add_roles(color_role)
-        await interaction.response.send_message(
-            f"{interaction.user.mention} colored {player.mention} {color_role.mention}.")
+    player = app_commands.Group(name='player', description='Commands for interacting with other players')
+
+    @app_commands.describe(member='Target member')
+    @player.command(name='kiss', description='Kiss yourself or another player')
+    async def kiss(self, interaction: Interaction, member: Member) -> None:
+        await interaction.response.defer()
+        await self.gamer.decrease_score(interaction.user, 100)
+        await self.gamer.increase_score(member, 100)
+        # Need image
+        embed = Embed(
+            title=f"{interaction.user.display_name.title()} Kissed {member.display_name.title()}!",
+            color=Color.red())
+        await interaction.guild.system_channel.send(embed=embed)
+        if self.gamer.stats.get_player(interaction.user.id).score == 0:
+            await self.gamer.remove_heart(
+                interaction.user, interaction.channel, interaction.user.display_name)
+        await interaction.followup.send(f"{interaction.user.mention} kissed {member.mention}!")
+        return None
+
+    @app_commands.describe(member='Target Member')
+    @player.command(name='punch', description='Attack yourself or another player')
+    async def punch(self, interaction: Interaction, member: Member) -> None:
+        await interaction.response.defer()
+        for def_role in member.roles:
+            if def_role in self.gamer.setup.primary_roles:
+                break
+        for off_role in interaction.user.roles:
+            if off_role.name in self.gamer.setup.primary_roles:
+                break
+        offen = self.gamer.stats.get_player(interaction.user.id)
+        defen = self.gamer.stats.get_player(member.id)
+        attack = offen.attack()
+        damage = defen.defend(attack)
+        await self.gamer.decrease_score(member, damage)
+        await self.gamer.increase_score(interaction.user, damage)
+        # Need image
+        embed = Embed(
+            title=f"Level {offen.level} {off_role.name} Punched Level {defen.level} {def_role.name}!",
+            description=f"{interaction.user.mention} punched {member.mention}!",
+            color=Color.red())
+        embed.add_field(name='Attack', value=attack)
+        embed.add_field(name='Damage', value=damage)
+        await interaction.guild.system_channel.send(embed=embed)
+        if self.gamer.stats.get_player(member.id).score == 0:
+            await self.gamer.remove_heart(
+                member, interaction.channel, interaction.user.display_name)
+        await interaction.followup.send(f"{interaction.user.mention} punched {member.mention}!")
         return None
 
     delete = app_commands.Group(name='delete', description='Administrator commands',
