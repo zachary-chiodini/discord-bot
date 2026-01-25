@@ -2,9 +2,7 @@ from asyncio import sleep
 from typing import Dict, List, Optional, Union
 
 from discord import (CategoryChannel, Color, Embed, File, Guild, Member, Permissions,
-    PermissionOverwrite, Role, TextChannel, Webhook)
-
-from npc import NPC, GoldNeko, Skyevolutrex
+    PermissionOverwrite, Role, TextChannel)
 
 class Item:
 
@@ -55,6 +53,7 @@ class Setup:
             '❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️': 'heart10', '💀': 'skull', '👻': 'ghost1',
             '👻👻': 'ghost2', '👻👻👻': 'ghost3'}
         self.roles = roles
+        self.rules = ['no-anime', 'no-bullying', 'no-gore', 'no-nudes']
         # Note: Permission roles are overly complicated
         # Creating stacked items that act as combined permissions is way more complicated
         # but it looks cool
@@ -277,7 +276,6 @@ class Setup:
         category = await self.guild.create_category(
             '🏰🐉Town Square🏤🏦🌈🏨', overwrites=self._main_perms())
         channel = await category.create_text_channel(name='🏙️center👥⛲🦢🏞️')
-        await self.webhook(channel, GoldNeko)
         for name in ['🎼orchestra👥📻🎵', '🎞️playhouse📽️🎬🎭',
                 '🌃blue🍇bar🍺🥃🥜', '💨blue🫐smoke🌬️🍃', '🏚️blue🟦block🍚🗞️',
                 '🫂emotional-supp❤️‍🩹']:
@@ -291,7 +289,6 @@ class Setup:
         category = await self.guild.create_category(
             '🏕️🦌Outskirts🌿🐦🌳🌰🐿️', overwrites=outsider_perms)
         channel = await category.create_text_channel(name='🐾🍂wilderness⛰️🍄')
-        await self.webhook(channel, Skyevolutrex)
         system_channel = await category.create_text_channel(name='🌀🪞gay-portal🪞🌀')
         await self.guild.edit(system_channel=system_channel)
         await category.create_voice_channel(name='🐾🍂wilderness⛰️🍄')
@@ -349,7 +346,7 @@ class Setup:
     async def rules(self) -> None:
         rules_perms = self.view_only_channel | self._main_perms() | {self.roles['Guard']: self.post_and_view}
         category = await self.guild.create_category('🛡️⚔️COMMANDMENTS⚔️🛡️', overwrites=rules_perms)
-        for rule in ['no-anime', 'no-bullying', 'no-gore', 'no-nudes']:
+        for rule in self.rules:
             await category.create_text_channel(name=f"⛔{rule}🗃️")
         return None
 
@@ -365,12 +362,6 @@ class Setup:
             channel = self.guild.system_channel
         await channel.send(embed=embed, file=file)
         return None
-
-    async def webhook(self, channel: TextChannel, npc: type[NPC]) -> Webhook:
-        with open(f"database/images/{npc.avatar}.png", 'rb') as f:
-            avatar_bytes = f.read()
-        webhook = await channel.create_webhook(name=npc.alias, avatar=avatar_bytes)
-        return webhook
 
     async def _all_channels(self) -> None:
         await self.bulletin()

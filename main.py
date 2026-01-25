@@ -1,13 +1,17 @@
+from datetime import datetime
+from io import BytesIO
 from random import randint
+from zoneinfo import ZoneInfo
 
 from discord import (app_commands, Embed, File, Guild, Intents, Interaction, Member, Message,
     MessageType, Object, Permissions, RawBulkMessageDeleteEvent, RawMessageDeleteEvent,
     RawReactionActionEvent, Role, TextChannel)
 from discord.errors import NotFound
+from emoji import replace_emoji
+from PIL import Image, ImageEnhance, ImageFilter, ImageOps, ImageDraw, ImageFont
 from discord.ext import commands, tasks
 
-from game import Game
-from npc import Skyevolutrex, GoldNeko
+from game import BabySlime, Game, GoldNeko, Skyevolutrex, MommySlime
 from paint import Paint
 from utils import get_emoji_list
 
@@ -24,14 +28,14 @@ class Base(commands.Cog):
 
     async def cog_load(self) -> None:
         await self.gamer.load_npcs()
-        await self.game_loop.start()
+        self.game_loop.start()
         return None
 
     def cog_unload(self) -> None:
         self.game_loop.cancel()
         return None
 
-    @tasks.loop(hours=4)
+    @tasks.loop(hours=8)
     async def game_loop(self) -> None:
         if randint(0, 1):
             await self.gamer.npcs.get(Skyevolutrex.alias).send_passive_dialogue()
@@ -46,8 +50,8 @@ class Base(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_join(self, member: Member) -> None:
-        await member.add_roles(*[self.gamer.roles['Level'][0], self.gamer.roles['💀'],
-            self.gamer.roles['💎🪨🕹️'], self.gamer.roles['Outsider']])
+        await member.add_roles(self.gamer.roles['Level'][0], self.gamer.roles['💀'],
+            self.gamer.roles['💎🪨🕹️'], self.gamer.roles['Outsider'])
         await self.gamer.setup.send_img(self.gamer.roles['Outsider'], 'meilanliu',
             f"Name: {member.name}\nAlias: {member.mention}", 'Outsider Identified', member)
         skyevolutrex = self.gamer.npcs.get(Skyevolutrex.alias)
@@ -116,9 +120,7 @@ class GameBot(Base):
         for webhook in await channel.webhooks():
             if webhook.name in self.gamer.npcs:
                 await self.gamer.npcs[webhook.name].send_passive_dialogue()
-                await interaction.followup.send('Done.', ephemeral=True)
-                return None
-        await interaction.followup.send(f"No characters in {channel}.", ephemeral=True)
+        await interaction.followup.send('Done.', ephemeral=True)
         return None
 
     @app_commands.describe(color_role='Selected color')
@@ -142,7 +144,7 @@ class GameBot(Base):
         coins, items = set(), set()
         color_role = None
         level, perms, state, vigor = '♾️', '♾️', '♾️', '♾️'
-        max_stacked = 0
+        max_stacked = False
         for role in member.roles:
             item_list = get_emoji_list(role.name)
             if item_list:
@@ -154,8 +156,9 @@ class GameBot(Base):
                 elif item_key in self.gamer.setup.perm_single_items:
                     perms = role.mention
                 else:
-                    max_stacked = int(len(item_list) == 3)
                     items.add(role.mention)
+                    if not max_stacked:
+                        max_stacked = len(item_list) == 3
             elif self.color.id_exists(role.id):
                 color_role = role
             elif role.name.isdigit():
@@ -286,12 +289,10 @@ class GameBot(Base):
         async for message in interaction.channel.history(before=interaction_message):
             try:
                 await message.delete()
-                await interaction.followup.send(
-                    f"Message remains: Deleted {message.id} (Rate limited)")
                 n += 1
             except NotFound as e:
-                await interaction.followup.send(f"Error: {e}")
-        await interaction.followup.send(f"Deleted {len(deleted) + 1} messages.")
+                await interaction_message.edit(content=f"Error: {e}")
+        await interaction.followup.send(f"Deleted {len(deleted) + n} messages.")
         return None
 
     @delete.command(name='role')
@@ -373,6 +374,77 @@ class GameBot(Base):
         return None
 
     @master.command()
+    async def imprison(self, interaction: Interaction, member: Member, charge: TextChannel) -> None:
+        if replace_emoji(charge.name, '') not in self.gamer.setup.rules:
+            await interaction.response.send_message(f"Channel {charge.name} is not a crime.")
+            return None
+        await interaction.response.defer()
+        await self.gamer.clear_score(member)
+        for life_role in member.roles:
+            if life_role.name in self.gamer.setup.lives:
+                break
+        await member.remove_roles(
+            *[role for role in member.roles if role != interaction.guild.default_role])
+        await member.add_roles(
+            self.gamer.roles['Level'][0], life_role, self.gamer.roles['🪨'], self.gamer.roles['Prisoner'])
+        # Create avatar behind bars in visitation channel
+        avatar_bytes = await member.display_avatar.replace(format='png', size=512).read()
+        with Image.open(BytesIO(avatar_bytes)).convert('RGBA') as avatar_img:
+            avatar_img = ImageEnhance.Brightness(avatar_img).enhance(0.50)
+            avatar_img = avatar_img.filter(ImageFilter.GaussianBlur(2))
+            with Image.open('database/images/jail.png').convert('RGBA') as overlay_img:
+                overlay_img = overlay_img.resize(avatar_img.size, resample=Image.Resampling.LANCZOS)
+                avatar_img.paste(overlay_img, (0, 0), overlay_img)
+            out = BytesIO()
+            avatar_img.save(out, format='PNG')
+            out.seek(0)
+        embed = Embed(title=f"Prisoner {member.id}",
+            description=f"Alias: {member.mention}", color=self.gamer.roles['Prisoner'].color)
+        embed.set_image(url="attachment://jail.png")
+        await interaction.guild.get_channel(1458944209502474525).send(
+            embed=embed, file=File(out, filename='jail.png'))
+        # Create mugshot with booking card in crime channel
+        with Image.open(BytesIO(avatar_bytes)).convert('RGBA') as avatar_img:
+            avatar_img = ImageOps.grayscale(avatar_img.convert("RGB")).convert("RGB")
+            avatar_img = ImageEnhance.Contrast(avatar_img).enhance(1.6)
+            avatar_img = ImageEnhance.Brightness(avatar_img).enhance(0.95)
+            w1, h1 = avatar_img.size
+            with Image.open('database/images/bookingcard.png').convert('RGBA') as overlay_img:
+                name = replace_emoji(member.display_name, ' ').strip()
+                serial = str(member.id)
+                date =  datetime.now(ZoneInfo('America/New_York')).strftime('%m/%d/%Y %I:%M %p')
+                crime = replace_emoji(charge.name, ' ').split('-')[-1].capitalize()
+                if len(serial) > len(name):
+                    longest = serial
+                else:
+                    longest = name
+                l, s = 0, 0
+                while l < w1 / 2:
+                    s += 1
+                    font = ImageFont.truetype('/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf', s)
+                    l = font.getlength(longest)
+                w2, h2 = overlay_img.size
+                w = int(l) + 20
+                h = int(h2 * (w / w2))
+                overlay_img = overlay_img.resize((w, h), Image.Resampling.LANCZOS)
+                draw = ImageDraw.Draw(overlay_img)
+                pady = 5
+                line_h, text_h = (h - 2 * pady) / 5, sum(font.getmetrics())
+                midd_h = (line_h - text_h) // 2
+                for i, text in enumerate([name, str(member.id), date, 'GFP USA', crime]):
+                    draw.text(((w - font.getlength(text)) // 2, pady + midd_h + (i * line_h)), text, font=font)
+                avatar_img.paste(overlay_img, ((w1 - w) // 2, h1 - h), overlay_img)
+            out = BytesIO()
+            avatar_img.save(out, format='PNG')
+            out.seek(0)
+        embed = Embed(title='Criminal Identified!', color=self.gamer.roles['Prisoner'].color)
+        embed.set_image(url='attachment://booking.png')
+        msg = await charge.send(embed=embed, file=File(out, filename='booking.png'))
+        link = f"https://discord.com/channels/{msg.guild.id}/{msg.channel.id}"
+        await interaction.followup.send(f"{member.mention} is imprisoned: [{charge.name}]({link})")
+        return None
+
+    @master.command()
     async def initialize(self, interaction: Interaction) -> None:
         await interaction.response.defer()
         resp = await self.gamer.setup.all()
@@ -382,11 +454,12 @@ class GameBot(Base):
 
     @master.command()
     async def liberate(self, interaction: Interaction, member: Member) -> None:
-        if member.get_role(self.gamer.roles['TOWG']):
+        await interaction.response.defer(ephemeral=True)
+        if member.get_role(self.gamer.roles['TOWG'].id):
             await interaction.response.send_message(f"{member.mention} is already liberated.")
             return None
-        outsider = member.get_role(self.gamer.roles['Outsider'])
-        prisoner = member.get_role(self.gamer.roles['Prisoner'])
+        outsider = member.get_role(self.gamer.roles['Outsider'].id)
+        prisoner = member.get_role(self.gamer.roles['Prisoner'].id)
         if outsider:
             cur_role = outsider
         elif prisoner:
@@ -409,31 +482,34 @@ class GameBot(Base):
         goldneko: GoldNeko = self.gamer.npcs.get(GoldNeko.alias)
         await goldneko.webhook.send(f"{member.mention} has been liberated!")
         await goldneko.send_passive_dialogue()
+        await interaction.followup.send(
+            f"{member.mention} has been liberated.", ephemeral=True)
         return None
 
     @master.command()
     async def spawn(self, interaction: Interaction, name: str, channel: TextChannel) -> None:
-        str_map = {'gold neko': GoldNeko, 'skyevolutrex': Skyevolutrex}
+        str_map = {'baby slime': BabySlime, 'gold neko': GoldNeko, 'skyevolutrex': Skyevolutrex,
+            'mommy slime': MommySlime}
         if name in str_map:
             await interaction.response.defer()
-            npc_obj = self.gamer.npcs.get(str_map[name])
-            await self.gamer.spawn(channel, npc_obj)
-            await interaction.followup.send(f"Created {npc_obj.alias}.")
+            await self.gamer.spawn(channel, str_map[name])
+            await interaction.followup.send(f"Created {str_map[name].alias}.")
             return None
         await interaction.response.send_message(f"{name} does not exist.")
         return None
 
 
 if __name__ == "__main__":
-    bot = commands.Bot(command_prefix='/', intents=Intents.all())
+    bot = commands.Bot(command_prefix='!', intents=Intents.all())
 
     @bot.event
     async def on_ready():
         guild = bot.get_guild(GameBot.GUILD_ID)
         await bot.add_cog(GameBot(bot, guild))
-        guild = Object(id=GameBot.GUILD_ID)
-        bot.tree.copy_global_to(guild=guild)
-        await bot.tree.sync(guild=guild)
+        guild_obj = Object(id=GameBot.GUILD_ID)
+        bot.tree.copy_global_to(guild=guild_obj)
+        #bot.tree.clear_commands(guild=guild_obj)
+        await bot.tree.sync(guild=guild_obj)
 
     with open('database/files/token.txt') as token_file:
         token_raw = token_file.read()

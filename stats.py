@@ -1,4 +1,5 @@
 from pathlib import Path
+from random import random
 
 from math import sqrt
 
@@ -16,7 +17,12 @@ class Player:
         self.reacts = reacts
         self.score = score
 
+    def attack(self) -> int:
+        return int(self.score * random()**0.5)
+
     def calc_level(self) -> int:
+        if not self.score:
+            return 0
         A = 9910.10197
         a, b, c  = A / 9801, 0.89797, self.score - 1
         x = 1 + (sqrt(abs(b*b - 4*a*c)) - b) / (2*a)
@@ -24,6 +30,9 @@ class Player:
         if level > 99:
             level = 99
         return level
+
+    def defend(self, damage: int) -> int:
+        return damage - int(damage * random()**1.5)
 
     def format(self) -> str:
         return (f"{self.id:<20},"
@@ -60,7 +69,7 @@ class Stats:
     def clear_score(self, player_id: int) -> None:
         player = self.get_player(player_id)
         player.score = 0
-        self._update(player_id)
+        self._update(player)
         return None
 
     def create_player(self, player_id: int, health=0, level=0, level_heart=0) -> Player:
