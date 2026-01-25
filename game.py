@@ -296,6 +296,8 @@ class Interface(View):
         except NotFound:
             # NPC was killed.
             await self.gamer.increase_score(interaction.user, self.npc.points)
+            message = await interaction.channel.fetch_message(interaction.message.id)
+            await message.delete()
         return None
 
     @button(label='🫳', style=ButtonStyle.primary)
