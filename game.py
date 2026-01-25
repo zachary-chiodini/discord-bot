@@ -53,11 +53,10 @@ class Game:
             author = gamer.display_name
             avatar = gamer.display_avatar
             gamer = await gamer.guild.fetch_member(gamer.id)  # Refresh
-            for role in gamer.roles:
-                if role.name in self.setup.lives:
-                    await gamer.remove_roles(role)
+            for cur_role in gamer.roles:
+                if cur_role.name in self.setup.lives:
                     break
-            await gamer.add_roles(new_role)
+            await self.swap_roles(gamer, new_role, cur_role)
         else:
             name = f"**{gamer.name}**"
             author = gamer.name
@@ -132,8 +131,7 @@ class Game:
             if isinstance(gamer, Member):
                 author = gamer.display_name
                 avatar = gamer.display_avatar
-                await gamer.remove_roles(old_role)
-                await gamer.add_roles(new_role)
+                await self.swap_roles(gamer, new_role, old_role)
             else:
                 author = gamer.name
                 avatar = gamer.avatar
@@ -201,11 +199,10 @@ class Game:
             name = gamer.mention
             author = gamer.display_name
             avatar = gamer.display_avatar
-            for role in gamer.roles:
-                if role in self.setup.lives:
-                    await gamer.remove_roles(role)
+            for cur_role in gamer.roles:
+                if cur_role in self.setup.lives:
                     break
-            await gamer.add_roles(new_role)
+            await self.swap_roles(gamer, new_role, cur_role)
         else:
             name = f"**{gamer.name}**"
             author = gamer.name
@@ -222,10 +219,19 @@ class Game:
         with open(f"database/images/{npc.avatar}.png", 'rb') as f:
             avatar_bytes = f.read()
         webhook = await channel.create_webhook(name=npc.alias, avatar=avatar_bytes)
-        player = self.stats.create_player(webhook.id)
+        self.stats.create_player(webhook.id)
         new_npc = npc(self, webhook)
         self.npcs[webhook.name] = new_npc
         await new_npc.send_passive_dialogue()
+        return None
+
+    async def swap_roles(self, member: Member, add_role: Role, rem_role: Union[None, Role]) -> None:
+        # API calls are rate limited: Removing/adding roles should be a single call.
+        new_roles = member.roles.copy()
+        new_roles.append(add_role)
+        if rem_role:
+            new_roles.remove(rem_role)
+        await member.edit(roles=new_roles)
         return None
 
 
@@ -373,6 +379,8 @@ class NPC:
 
     async def die(self, killer: str) -> None:
         channel = self.webhook.channel
+        self.interface.gamer.delete(self.webhook)
+        del self.interface.gamer.npcs[self.webhook.name]
         await self.webhook.delete()
         embed = Embed(title=f"🪦Dead {replace_emoji(self.alias, '')}💐",
             description=f"Killed by {killer} {3 * self.interface.gamer.roles['💀'].mention}",

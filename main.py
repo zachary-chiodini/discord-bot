@@ -233,9 +233,12 @@ class GameBot(Base):
         if not self.color.id_exists(color_role.id):
             await interaction.response.send_message(f"Color not found: {color_role.mention}.")
             return None
-        await member.remove_roles(
-            *[role for role in member.roles if self.color.id_exists(role.id)])
-        await member.add_roles(color_role)
+        for cur_role in member.roles:
+            if self.color.id_exists(cur_role.id):
+                break
+        else:
+            cur_role = None
+        await self.gamer.swap_roles(member, color_role, cur_role)
         await interaction.response.send_message(
             f"{interaction.user.mention} colored {member.mention} {color_role.mention}.")
         return None
@@ -410,9 +413,7 @@ class GameBot(Base):
         for new_item in created_item_list:
             points += self.gamer.setup.all_items[new_item].points
         await self.gamer.increase_score(member, points)
-        if cur_role:
-            await member.remove_roles(cur_role)
-        await member.add_roles(self.gamer.roles[new_stack])
+        await self.gamer.swap_roles(member, self.gamer.roles[new_stack], cur_role)
         mention_str = ', '.join([self.gamer.roles[item].mention for item in created_item_list])
         await interaction.followup.send(
             f"{interaction.user.mention} created {member.mention} {mention_str}")
@@ -428,10 +429,8 @@ class GameBot(Base):
         for life_role in member.roles:
             if life_role.name in self.gamer.setup.lives:
                 break
-        await member.remove_roles(
-            *[role for role in member.roles if role != interaction.guild.default_role])
-        await member.add_roles(
-            self.gamer.roles['Level'][0], life_role, self.gamer.roles['🪨'], self.gamer.roles['Prisoner'])
+        await member.edit(roles=[interaction.guild.default_role, self.gamer.get_level_role(0),
+            life_role, self.gamer.roles['🪨'], self.gamer.roles['Prisoner']])
         # Create avatar behind bars in visitation channel
         avatar_bytes = await member.display_avatar.replace(format='png', size=512).read()
         with Image.open(BytesIO(avatar_bytes)).convert('RGBA') as avatar_img:
@@ -514,8 +513,7 @@ class GameBot(Base):
                 f"Only {outsider.mention} or {prisoner.mention} can be liberated.")
             return None
         new_role = self.gamer.roles['TOWG']
-        await member.remove_roles(cur_role)
-        await member.add_roles(new_role)
+        await self.gamer.swap_roles(member, new_role, cur_role)
         image = 'liberated'
         file = File(f"database/images/{image}.png", filename=f"{image}.png")
         embed = Embed(title='Liberation',
