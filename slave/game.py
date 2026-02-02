@@ -10,8 +10,8 @@ from discord.ui import button, Button, View
 from emoji import replace_emoji
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 
-from setup import Setup
-from stats import Stats
+from petto.setup import Setup
+from petto.stats import Stats
 
 
 class Game:
@@ -229,7 +229,7 @@ class Game:
         # API calls are rate limited: Removing/adding roles should be a single call.
         new_roles = member.roles.copy()
         new_roles.append(add_role)
-        if rem_role:
+        if rem_role and rem_role in new_roles:
             new_roles.remove(rem_role)
         await member.edit(roles=new_roles)
         return None

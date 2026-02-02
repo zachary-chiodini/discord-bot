@@ -8,7 +8,7 @@ from PIL import Image
 
 class Paint:
 
-    file = Path('database/files/color.txt')
+    file = Path('color.txt')
 
     def __init__(self):
         self._paint = {}
@@ -41,7 +41,7 @@ class Paint:
         return 0
 
     def image_path(self, hex_code: str) -> str:
-        return f"database/images/{hex_code}.png"
+        return f"imgs/{hex_code}.png"
 
     @staticmethod
     def is_hexcode(str_: str) -> bool:
