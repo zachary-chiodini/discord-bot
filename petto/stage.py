@@ -1,13 +1,15 @@
 from __future__ import annotations
 from random import choice
-from typing import List, Type
+from typing import List, Type, TypedDict
+from typing_extensions import NotRequired
 
-from discord import ButtonStyle, Embed, File, Interaction, Message, TextChannel
+from discord import ButtonStyle, Color, Embed, File, Interaction, Message, TextChannel
 from discord.ext.commands import Bot
 from discord.ui import button, Button, View
 
-from state import State
-import utils
+from petto.state import State
+from petto.stats import Player
+from petto import utils
 
 
 class StageView(View):
@@ -17,41 +19,36 @@ class StageView(View):
         self.toggled = False
 
 
-class Chat:
+class Chat(TypedDict):
 
-    clean: List[str]
-    dirty: List[str]
-    hungry: List[str]
-    full: List[str]
-    powerful: List[str]
-    weak: List[str]
-    parched: List[str]
-    quenched: List[str]
-    healthy: List[str]
-    sick: List[str]
-    happy: List[str]
-    sad: List[str]
-    scared: List[str]
-    mad: List[str]
-    neutral: List[str]
-
-    def refresh(self) -> str:
-        pass
-
-    def random(self) -> str:
-        fields = vars(self)
-        return choice(fields[choice(list(fields.keys()))])
+    clean: NotRequired[List[str]]
+    dirty: NotRequired[List[str]]
+    hungry: NotRequired[List[str]]
+    full: NotRequired[List[str]]
+    powerful: NotRequired[List[str]]
+    weak: NotRequired[List[str]]
+    parched: NotRequired[List[str]]
+    quenched: NotRequired[List[str]]
+    healthy: NotRequired[List[str]]
+    sick: NotRequired[List[str]]
+    happy: NotRequired[List[str]]
+    sad: NotRequired[List[str]]
+    scared: NotRequired[List[str]]
+    mad: NotRequired[List[str]]
+    neutral: NotRequired[List[str]]
 
 
 class Stage:
 
     chat: Chat
-    avatar_img: str
+    alias: str
+    avatar: str
     death_img: str
     info_img: str
  
-    def __init__(self, state: State):
+    def __init__(self, state: State, player: Player):
         self.interface: StageView = self.Interface(self)
+        self.player = player
         self.state = state
 
     def __init_subclass__(cls: Type['Stage']):
@@ -59,12 +56,15 @@ class Stage:
         if not hasattr(cls, 'Interface'):
             raise TypeError('Undefined nested class Interface.')
 
+    def random_chat(self) -> str:
+        return choice(self.chat[choice(list(self.chat.keys()))])
+
     async def reply(self, message: Message, text: str) -> None:
         await message.reply(text, view=self.interface)
         return None
 
     async def reply_random(self, message: Message) -> None:
-        await self.reply(message, self.chat.random())
+        await self.reply(message, self.random_chat())
         return None
 
     async def send(self, channel: TextChannel, text: str) -> None:
@@ -76,13 +76,17 @@ class Stage:
         return None
 
     async def send_random_text(self, channel: TextChannel) -> None:
-        await self.send(channel, self.chat.random())
+        await self.send(channel, self.random_chat())
         return None
 
 
 class Egg(Stage):
 
     chat = Chat(neutral=['Crack', 'Tap', 'Peep', 'Squeak', 'Chirp'])
+    alias = 'Geppetto🐣Egg'
+    avatar = 'Egg1'
+    death_img = 'Egg2'
+    info_img = 'Egg3'
 
     class Interface(StageView):
 
@@ -93,7 +97,7 @@ class Egg(Stage):
             await self.stage.send_random_text(interaction.channel)
             return None
 
-        @button(label='🫳', style=ButtonStyle.grey)
+        @button(label='🫳', style=ButtonStyle.blurple)
         async def pet(self, interaction: Interaction, button: Button) -> None:
             await interaction.response.defer()
             await interaction.message.delete()
@@ -110,7 +114,24 @@ class Egg(Stage):
             else:
                 button.label = '🔺'
                 self.toggled = True
-                embed = Embed()
+                embed = Embed(title=f"Level {self.stage.player.level} {self.stage.alias}",
+                    description='An otherwordly Fabergé egg with scales made of jewels inlaid into gold and a large center gem that looks like an eye.',
+                    color=Color.from_str('#89CFF0'))
+                embed.add_field(name='Age', value=self.stage.state.age)
+                embed.add_field(name='Health', value=self.stage.state.health)
+                embed.add_field(name='Hunger', value=self.stage.state.hunger)
+                embed.add_field(name='Thirst', value=self.stage.state.thirst)
+                embed.add_field(name='Power', value=self.stage.state.power)
+                embed.add_field(name='Weight', value=self.stage.state.weight)
+                embed.add_field(name='Hygiene', value=self.stage.state.hygiene)
+                embed.add_field(name='Mood', value=self.stage.state.mood)
+                embed.add_field(name='Posts', value=self.stage.player.posts)
+                embed.add_field(name='Score', value=self.stage.player.score)
+                embed.set_image(url=f"attachment://{self.stage.info_img}")
+                file = File(f"petto/imgs/{self.stage.info_img}.png",
+                    filename=f"{self.stage.info_img}.png")
+                attach = {'attachments': [file], 'embeds': [embed]}
+            await interaction.edit_original_response(**attach, view=self)
             return None
 
 

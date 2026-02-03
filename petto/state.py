@@ -3,7 +3,7 @@ from pathlib import Path
 
 class State:
 
-    file = Path('state.txt')
+    file = Path('petto/state.txt')
     friends = {}
 
     def __init__(self):
@@ -12,19 +12,20 @@ class State:
         self.hunger = 0
         self.hygiene = 0
         self.mood = 0
-        self.posts = 0
         self.power = 0
         self.stage = 0
         self.thirst = 0
         self.weight = 0
         if self.file.exists():
             with open(str(self.file)) as f:
-                stats = f.readline().split(',')
-                for field, stat in zip(self.__dict__, stats):
-                    setattr(self, field, stat)
-                for friend in f.readlines():
-                    friend_id, strength = map(int, friend.split(','))
-                    self.friends[friend_id] = strength
+                line = f.readline()
+                if line:
+                    stats = line.split(',')
+                    for field, stat in zip(self.__dict__, stats):
+                        setattr(self, field, int(stat))
+                    for friend in f.readlines():
+                        friend_id, strength = map(int, friend.split(','))
+                        self.friends[friend_id] = strength
         else:
             self.file.touch()
 

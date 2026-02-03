@@ -8,7 +8,7 @@ from PIL import Image
 
 class Paint:
 
-    file = Path('color.txt')
+    file = Path('petto/color.txt')
 
     def __init__(self):
         self._paint = {}

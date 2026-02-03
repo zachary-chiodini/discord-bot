@@ -1,10 +1,10 @@
-from discord import Object
-from discord.ext import commands, Intents
+from discord import Intents, Object
+from discord.ext import commands
 
 from petto.petto import Petto
 
 
-with open('guild_id.txt') as f:
+with open('petto/guild_id.txt') as f:
     guild_id = int(f.read())
 
 bot = commands.Bot(command_prefix='/', intents=Intents.all())
@@ -17,7 +17,7 @@ async def on_ready():
     #bot.tree.clear_commands(guild=guild_obj)
     await bot.tree.sync(guild=guild_obj)
 
-with open('token.txt') as token_file:
+with open('petto/token.txt') as token_file:
     token_raw = token_file.read()
 
 bot.run(token_raw)

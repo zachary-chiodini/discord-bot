@@ -5,12 +5,13 @@ from typing import Dict
 
 class Player:
 
-    def __init__(self, index: int, player_id: int, active: int = 0, health: int = 0,
+    def __init__(self, index: int, player_id: int, level: int = 0, active: int = 0, health: int = 0,
             mood: int = 0, posts: int = 0, reacts: int = 0, score: int = 0, items: str = ''):
         self.active = active
         self.health = health
         self.id = player_id
         self.index = index
+        self.level = level
         self.mood = mood
         self.posts = posts
         self.reacts = reacts
@@ -30,14 +31,14 @@ class Player:
         return level
 
     def format(self) -> str:
-        return (f"{self.id:<20},{self.active:0>3},{self.health:0>3},"
+        return (f"{self.id:<20},{self.active:0>3},{self.health:0>3},{self.level:0>00},"
                 f"{self.posts:0>20},{self.reacts:0>20},{self.score:0>20}\n"
                 f"{','.join(self.items)}\n")
 
 
 class Stats:
 
-    file = Path('stats.txt')
+    file = Path('petto/stats.txt')
 
     def __init__(self):
         self._stats: Dict[int, Player] = {}
@@ -53,7 +54,7 @@ class Stats:
             self.file.touch()
 
     def create_player(self, player_id: int) -> Player:
-        player = Player(len(self._stats))
+        player = Player(len(self._stats), player_id)
         self._stats[player_id] = player
         self._update(player)
         return player
