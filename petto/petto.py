@@ -71,19 +71,24 @@ class Petto(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: Message) -> None:
-        if ((message.type == MessageType.new_member) or (self.bot.user in message.mentions)
+        if message.type == MessageType.new_member:
+            await self.stage.reply_random(message)
+            return None
+        elif ((self.bot.user in message.mentions)
+                or (self.bot.get_guild(self.guild_id).me.top_role in message.role_mentions)
                 or ((message.reference and isinstance(message.reference.resolved, Message)
                     and (message.reference.resolved.author == self.bot.user)))):
             await self.stage.reply_random(message)
         elif random() < 0.01:
             await self.stage.send_random_text(message.channel)
+        self.stats.update_posts(message.author.id, 1)
         return None
 
     @commands.Cog.listener()
     async def on_raw_bulk_message_delete(self, payload: RawBulkMessageDeleteEvent):
         for message in payload.cached_messages:
             if not message.author.bot:
-                self.stats.update_posts(message.author.id, 1)
+                self.stats.update_posts(message.author.id, -1)
         return None
 
     @commands.Cog.listener()
@@ -100,15 +105,6 @@ class Petto(commands.Cog):
     @commands.Cog.listener()
     async def on_raw_reaction_remove(self, payload: RawReactionActionEvent) -> None:
         self.stats.update_reacts(payload.member.id, -1)
-        return None
-
-    call = app_commands.Group(name='call', description='Where is Petto?')
-
-    @call.command()
-    async def geppetto(self, interaction: Interaction) -> None:
-        await interaction.response.defer(ephemeral=True)
-        await interaction.delete_original_response()
-        await self.stage.send_random_text(interaction.channel)
         return None
 
     master = app_commands.Group(name='master', description='Administrator commands',

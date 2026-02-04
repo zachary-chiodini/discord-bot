@@ -5,7 +5,7 @@ from typing import Dict
 
 class Player:
 
-    def __init__(self, index: int, player_id: int, level: int = 0, active: int = 0, health: int = 0,
+    def __init__(self, index: int, player_id: int, active: int = 0, health: int = 0, level: int = 0,
             mood: int = 0, posts: int = 0, reacts: int = 0, score: int = 0, items: str = ''):
         self.active = active
         self.health = health
@@ -17,7 +17,6 @@ class Player:
         self.reacts = reacts
         self.score = score
         self.items = items.split(',') if items else []
-        self.stats = [self.active, self.health, self.posts, self.reacts, self.score]
 
     def calc_level(self) -> int:
         if not self.score:
@@ -31,8 +30,8 @@ class Player:
         return level
 
     def format(self) -> str:
-        return (f"{self.id:<20},{self.active:0>3},{self.health:0>3},{self.level:0>00},"
-                f"{self.posts:0>20},{self.reacts:0>20},{self.score:0>20}\n"
+        return (f"{self.id:<20},{self.active:0>3},{self.health:0>3},{self.level:0>2},"
+                f"{self.mood:0>2},{self.posts:0>20},{self.reacts:0>20},{self.score:0>20}\n"
                 f"{','.join(self.items)}\n")
 
 
@@ -48,7 +47,7 @@ class Stats:
                 while line:
                     stats = line.split(',')
                     player_id = int(stats[0])
-                    self._stats[player_id] = Player(i, *map(int, stats), f.readline())
+                    self._stats[player_id] = Player(i, *map(int, stats), f.readline().strip())
                     i, line = i + 1, f.readline()
         else:
             self.file.touch()
@@ -83,6 +82,12 @@ class Stats:
     def update_reacts(self, player_id: int, n: int) -> None:
         player = self.get_player(player_id)
         player.reacts += n
+        player.score += n
+        self._update(player)
+        return None
+
+    def update_score(self, player_id: int, n: int) -> None:
+        player = self.get_player(player_id)
         player.score += n
         self._update(player)
         return None

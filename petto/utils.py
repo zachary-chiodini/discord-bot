@@ -5,9 +5,11 @@ from discord.ext.commands import Bot
 
 
 def get_random_channel_with_perm(bot: Bot, guild_id: int) -> TextChannel:
+    guild = bot.get_guild(guild_id)
+    member = guild.get_member(bot.user.id)
     channels = set()
     for channel in bot.get_guild(guild_id).channels:
-        perms = channel.permissions_for(bot.user)
+        perms = channel.permissions_for(member)
         if perms.view_channel and perms.send_messages:
             channels.add(channel)
     if not channels:

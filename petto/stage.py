@@ -115,7 +115,7 @@ class Egg(Stage):
                 button.label = '🔺'
                 self.toggled = True
                 embed = Embed(title=f"Level {self.stage.player.level} {self.stage.alias}",
-                    description='An otherwordly Fabergé egg with scales made of jewels inlaid into gold and a large center gem that looks like an eye.',
+                    description='An otherwordly Fabergé egg with scales made of jewels inlaid into gold, a large center gem that looks like an eye and a crown with horns.',
                     color=Color.from_str('#89CFF0'))
                 embed.add_field(name='Age', value=self.stage.state.age)
                 embed.add_field(name='Health', value=self.stage.state.health)
@@ -127,7 +127,7 @@ class Egg(Stage):
                 embed.add_field(name='Mood', value=self.stage.state.mood)
                 embed.add_field(name='Posts', value=self.stage.player.posts)
                 embed.add_field(name='Score', value=self.stage.player.score)
-                embed.set_image(url=f"attachment://{self.stage.info_img}")
+                embed.set_image(url=f"attachment://{self.stage.info_img}.png")
                 file = File(f"petto/imgs/{self.stage.info_img}.png",
                     filename=f"{self.stage.info_img}.png")
                 attach = {'attachments': [file], 'embeds': [embed]}
