@@ -3,7 +3,8 @@ from pathlib import Path
 from random import random
 
 from discord import (app_commands, Embed, File, Guild, Interaction, Member, Message,  MessageType,
-    Permissions, RawBulkMessageDeleteEvent, RawMessageDeleteEvent, RawReactionActionEvent)
+    Permissions, RawBulkMessageDeleteEvent, RawMessageDeleteEvent, RawMessageUpdateEvent,
+    RawReactionActionEvent)
 from discord.ext import commands, tasks
 
 from petto.stage import *
@@ -22,11 +23,11 @@ class Petto(commands.Cog):
         self.state = State()
         self.stats = Stats()
         self.stage: Stage = self.stages[self.state.stage](
-            self.state, self.stats.get_player(self.bot.user.id))
+            self.state, self.stats.get_player(self.bot.user.id), self.stats)
 
     @tasks.loop(time=time(hour=0, minute=0, tzinfo=timezone.utc))
     async def at_midnight(self) -> None:
-        self.state.age += 1
+        self.state.update('age', 1)
         await self.stage.send_random(self.bot, self.guild_id)
         return None
 
@@ -74,28 +75,37 @@ class Petto(commands.Cog):
         if message.type == MessageType.new_member:
             await self.stage.reply_random(message)
             return None
-        elif ((self.bot.user in message.mentions)
-                or (self.bot.get_guild(self.guild_id).me.top_role in message.role_mentions)
-                or ((message.reference and isinstance(message.reference.resolved, Message)
-                    and (message.reference.resolved.author == self.bot.user)))):
-            await self.stage.reply_random(message)
-        elif random() < 0.01:
-            await self.stage.send_random_text(message.channel)
-        self.stats.update_posts(message.author.id, 1)
+        if message.webhook_id:
+            player_id = message.webhook_id
+        else:
+            player_id = message.author.id
+            if ((self.bot.user in message.mentions)
+                    or (self.bot.get_guild(self.guild_id).me.top_role in message.role_mentions)
+                    or ((message.reference and isinstance(message.reference.resolved, Message)
+                        and (message.reference.resolved.author == self.bot.user)))):
+                await self.stage.reply_random(message)
+            elif (not message.author.bot) and (random() < 0.02):
+                await self.stage.send_random_text(message.channel)
+        self.stats.update_posts(player_id, 1)
         return None
 
     @commands.Cog.listener()
     async def on_raw_bulk_message_delete(self, payload: RawBulkMessageDeleteEvent):
         for message in payload.cached_messages:
-            if not message.author.bot:
+            if (not message.author.bot) and (not message.webhook_id):
                 self.stats.update_posts(message.author.id, -1)
         return None
 
     @commands.Cog.listener()
     async def on_raw_message_delete(self, payload: RawMessageDeleteEvent) -> None:
-        if payload.cached_message and (not payload.cached_message.author.bot):
+        if (payload.cached_message and (not payload.cached_message.author.bot)
+                and (not payload.cached_message.webhook_id)):
             self.stats.update_posts(payload.cached_message.author.id, -1)
         return None
+
+    @commands.Cog.listener()
+    async def on_raw_message_edit(self, payload: RawMessageUpdateEvent):
+        pass
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: RawReactionActionEvent) -> None:
@@ -104,7 +114,8 @@ class Petto(commands.Cog):
 
     @commands.Cog.listener()
     async def on_raw_reaction_remove(self, payload: RawReactionActionEvent) -> None:
-        self.stats.update_reacts(payload.member.id, -1)
+        if payload.member:
+            self.stats.update_reacts(payload.member.id, -1)
         return None
 
     master = app_commands.Group(name='master', description='Administrator commands',
@@ -113,10 +124,17 @@ class Petto(commands.Cog):
     @master.command()
     async def initialize(self, interaction: Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
-        for member in interaction.guild.members:
-            self.stats.create_player(member.id)
-        await interaction.guild.me.edit(nick=Egg.alias)
-        await self.bot.user.edit(avatar=Path(f"petto/imgs/{Egg.avatar}.png").read_bytes())
-        await self.stage.send_random_text(interaction.guild.system_channel)
+        # Initialize Geppetto Egg
+        await self.bot.user.edit(avatar=Path(f"petto/imgs/{Egg.avatar}.png").read_bytes(), username=Egg.alias)
+        self.state = State(age=0, hunger=5, hygiene=0, power=0, stage=0, thirst=0, weight=10, overwrite_file=True)
+        self.stage = self.stages[0](self.state, self.stats.get_player(self.bot.user.id))
+        self.stats.reset()
+        # Initialize Specter
+        with open(f"petto/imgs/specter.png", 'rb') as f:
+            avatar_bytes = f.read()
+        webhook = await interaction.guild.system_channel.create_webhook(name='😈Specter', avatar=avatar_bytes)
+        self.stats.create_player(webhook.id)
+        await webhook.send(('Geppetto appeared in your server.\n'
+            f"Interact by calling {self.bot.user.mention} or /{self.bot.user.display_name}."))
         await interaction.followup.send('Initialized.', ephemeral=True)
         return None
