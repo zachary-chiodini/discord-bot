@@ -1,4 +1,3 @@
-__pycache__
-database
-oldbot
+petto/__pycache__
+slave/__pycache__
 venv
