@@ -10,8 +10,8 @@ from discord.ui import button, Button, View
 from emoji import replace_emoji
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 
-from petto.setup import Setup
-from petto.stats import Stats
+from setup import Setup
+from stats import Stats
 
 
 class Game:
@@ -62,7 +62,7 @@ class Game:
             author = gamer.name
             avatar = gamer.avatar
         self.stats.increase_health(gamer.id, 1)
-        file = File(f"database/images/{image}.png", filename=f"{image}.png")
+        file = File(f"imgs/{image}.png", filename=f"{image}.png")
         embed = Embed(title=title, description=f"{name} {note}\n**Vigor**: {new_role.mention}", color=new_role.color)
         embed.set_image(url=f"attachment://{image}.png")
         embed.set_author(name=author, icon_url=avatar.url)
@@ -137,7 +137,7 @@ class Game:
                 avatar = gamer.avatar
             self.stats.level_up(gamer.id)
             image = str((next_lvl % 7) + 1)
-            file = File(f"database/images/{image}.png", filename=f"{image}.png")
+            file = File(f"imgs/{image}.png", filename=f"{image}.png")
             note = f"{prefix}graded From Level {old_role.mention} to Level {new_role.mention}" 
             embed = Embed(title=title, description=note, color=new_role.color)
             embed.set_image(url=f"attachment://{image}.png")
@@ -208,7 +208,7 @@ class Game:
             author = gamer.name
             avatar = gamer.avatar
         self.stats.increase_health(gamer.id, -1)
-        file = File(f"database/images/{image}.png", filename=f"{image}.png")
+        file = File(f"imgs/{image}.png", filename=f"{image}.png")
         embed = Embed(title=title, description=f"{name} {note}\n**Vigor**: {new_role.mention}", color=new_role.color)
         embed.set_image(url=f"attachment://{image}.png")
         embed.set_author(name=author, icon_url=avatar.url)
@@ -216,7 +216,7 @@ class Game:
         return None
 
     async def spawn(self, channel: TextChannel, npc: type[NPC]) -> None:
-        with open(f"database/images/{npc.avatar}.png", 'rb') as f:
+        with open(f"imgs/{npc.avatar}.png", 'rb') as f:
             avatar_bytes = f.read()
         webhook = await channel.create_webhook(name=npc.alias, avatar=avatar_bytes)
         self.stats.create_player(webhook.id)
@@ -344,7 +344,7 @@ class Interface(View):
             embed.add_field(name='Posts', value=player.posts)
             embed.add_field(name='Score', value=player.score)
             embed.add_field(name='Loot', value=', '.join(items), inline=False)
-            file = File(f"database/images/{self.npc.thumbnail}.png",
+            file = File(f"imgs/{self.npc.thumbnail}.png",
                 filename=f"{self.npc.thumbnail}.png")
             embed.set_image(url=f"attachment://{self.npc.thumbnail}.png")
             attach = {'attachments': [file], 'embeds': [embed]}
@@ -386,7 +386,7 @@ class NPC:
             description=f"Killed by {killer} {3 * self.interface.gamer.roles['💀'].mention}",
             color=Color.dark_red())
         embed.set_image(url=f"attachment://{self.deathnail}.png")
-        file = File(f"database/images/{self.deathnail}.png", filename=f"{self.deathnail}.png")
+        file = File(f"imgs/{self.deathnail}.png", filename=f"{self.deathnail}.png")
         await channel.send(embed=embed, file=file)
         return None
 
