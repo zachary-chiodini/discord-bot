@@ -1,3 +1,6 @@
-petto/__pycache__
+.vscode
+paint/__pycache__
+petto/__pycache__/
+petto/stg/__pycache__
 slave/__pycache__
 venv

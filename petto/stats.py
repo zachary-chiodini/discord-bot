@@ -6,7 +6,7 @@ from typing import Dict
 class Player:
 
     def __init__(self, index: int, player_id: int, active: int = 0, health: int = 5, level: int = 0,
-            mood: int = 0, posts: int = 0, reacts: int = 0, score: int = 0, items: str = ''):
+            mood: int = 0, posts: int = 0, reacts: int = 0, score: int = 0, *items):
         self.active = active
         self.health = health
         self.id = player_id
@@ -16,7 +16,7 @@ class Player:
         self.posts = posts
         self.reacts = reacts
         self.score = score
-        self.items = items.split(',') if items else []
+        self.items = items
 
     def calc_level(self) -> int:
         if not self.score:
@@ -30,27 +30,32 @@ class Player:
         return level
 
     def format(self) -> str:
+        items = []
+        for item_id in self.items:
+            items.append(f"{item_id:<20}")
+        for _ in range(len(items), 6):
+            items.append('00000000000000000000')
         return (f"{self.id:<20},{self.active:0>2},{self.health:0>2},{self.level:0>2},"
-                f"{self.mood:0>2},{self.posts:0>20},{self.reacts:0>20},{self.score:0>20}\n"
-                f"{','.join(self.items)}\n")
+                f"{self.mood:0>2},{self.posts:0>20},{self.reacts:0>20},{self.score:0>20}"
+                f"{','.join(items)}\n")
 
 
 class Stats:
 
-    file = Path('petto/stats.txt')
+    database = Path('petto/txt/stats.txt')
 
     def __init__(self):
         self._stats: Dict[int, Player] = {}
-        if self.file.exists():
-            with open(str(self.file)) as f:
+        if self.database.exists():
+            with open(str(self.database)) as f:
                 i, line = 0, f.readline()
                 while line:
                     stats = line.split(',')
-                    player_id = int(stats[0])
-                    self._stats[player_id] = Player(i, *map(int, stats), f.readline().strip())
+                    player_id = int(stats[0].strip())
+                    self._stats[player_id] = Player(i, *map(int, stats))
                     i, line = i + 1, f.readline()
         else:
-            self.file.touch()
+            self.database.touch()
 
     def create_player(self, player_id: int) -> Player:
         player = Player(len(self._stats), player_id)
@@ -60,7 +65,7 @@ class Stats:
 
     def delete(self, player_id: int) -> None:
         del self._stats[player_id]
-        with open(str(self.file), 'w') as f:
+        with open(str(self.database), 'w') as f:
             for i, player in enumerate(self._stats.values()):
                 player.index = i
                 f.write(player.format())
@@ -79,6 +84,17 @@ class Stats:
         self._stats = {}
         for player_id in stats_copy:
             self._stats[player_id] = self.create_player(player_id)
+        return None
+
+    def update_health(self, player_id: int, n: int) -> None:
+        player = self.get_player(player_id)
+        if player.health + n > 5:
+            player.health = 5
+        elif player.health + n < 0:
+            player.health = 0
+        else:
+            player.health += n
+        self._update(player)
         return None
 
     def update_posts(self, player_id: int, n: int) -> None:
@@ -101,7 +117,7 @@ class Stats:
 
     def _update(self, player: Player) -> None:
         data = player.format()
-        with open(str(self.file), 'r+') as f:
+        with open(str(self.database), 'r+') as f:
             f.seek(player.index * len(data))
             f.write(data)
         return None

@@ -8,22 +8,22 @@ from PIL import Image
 
 class Paint:
 
-    file = Path('petto/color.txt')
+    database = Path('paint/txt/color.txt')
 
     def __init__(self):
         self._paint = {}
-        if self.file.exists():
-            with open(str(self.file)) as f:
+        if self.database.exists():
+            with open(str(self.database)) as f:
                 for line in f.readlines():
                     paint_id, hex_code = line.split(',')
                     self._paint[int(paint_id)] = hex_code.strip()
         else:
-            self.file.touch()
+            self.database.touch()
 
     def delete(self, paint_id: int) -> None:
         remove(self.image_path(self._paint[paint_id]))
         del self._paint[paint_id]
-        with open(str(self.file), 'w') as f:
+        with open(str(self.database), 'w') as f:
             for paint_id_, hex_code in self._paint.items():
                 f.write(f"{paint_id_},{hex_code}\n")
         return None
@@ -41,7 +41,7 @@ class Paint:
         return 0
 
     def image_path(self, hex_code: str) -> str:
-        return f"imgs/{hex_code}.png"
+        return f"paint/img/{hex_code}.png"
 
     @staticmethod
     def is_hexcode(str_: str) -> bool:
@@ -60,8 +60,8 @@ class Paint:
         return f"#{r:02X}{g:02X}{b:02X}"
 
     def reset(self) -> None:
-        if self.file.exists():
-            self.file.write_text('')
+        if self.database.exists():
+            self.database.write_text('')
         for _, hex_code in self._paint.items():
             remove(self.image_path(hex_code.lstrip('#')))
         self._paint = {}
@@ -70,7 +70,7 @@ class Paint:
     def update(self, paint_id: str, hex_code: str) -> None:
         hex_code = hex_code.lstrip('#').upper()
         self._paint[paint_id] = hex_code
-        with open(str(self.file), 'a') as f:
+        with open(str(self.database), 'a') as f:
             f.write(f"{paint_id},{hex_code}\n")
         img = Image.new("RGB", (256, 256), tuple(bytes.fromhex(hex_code)))
         img.save(self.image_path(hex_code), format='PNG')

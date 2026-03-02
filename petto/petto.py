@@ -7,41 +7,39 @@ from discord import (app_commands, Embed, File, Guild, Interaction, Member, Mess
     RawReactionActionEvent)
 from discord.ext import commands, tasks
 
-from petto.stage import *
+from paint.paint import Paint
+
+from petto.stg.egg import Egg
 from petto.state import State
 from petto.stats import Stats
 
 
 class Petto(commands.Cog):
 
-    stages = [Egg, Baby, Kid, Adult, Senior, Dead, Ghost, Ascended, Damned]
-
     def __init__(self, bot: commands.Bot, guild_id: int):
         self.bot = bot
         self.guild_id = guild_id
         self.items = []
-        self.state = State()
+        self.state = State(bot.user.id)
         self.stats = Stats()
-        self.stage: Stage = self.stages[self.state.stage](
-            self.state, self.stats.get_player(self.bot.user.id), self.stats)
+        self.stage = Egg(self.state, self.stats)
 
     @tasks.loop(time=time(hour=0, minute=0, tzinfo=timezone.utc))
     async def at_midnight(self) -> None:
         self.state.update('age', 1)
-        await self.stage.send_random(self.bot, self.guild_id)
         return None
 
     @tasks.loop(time=time(hour=12, minute=0, tzinfo=timezone.utc))
     async def at_noon(self) -> None:
-        await self.stage.send_random(self.bot, self.guild_id)
-        return None
+        pass
 
     @tasks.loop(hours=1)
-    async def every_hour(self) -> None:
+    async def at_every_hour(self) -> None:
         pass
 
     @at_midnight.before_loop
     @at_noon.before_loop
+    @at_every_hour.before_loop
     async def before_loop(self) -> None:
         await self.bot.wait_until_ready()
         return None
@@ -49,11 +47,13 @@ class Petto(commands.Cog):
     def cog_load(self) -> None:
         self.at_midnight.start()
         self.at_noon.start()
+        self.at_every_hour.start()
         return None
 
     def cog_unload(self) -> None:
         self.at_midnight.cancel()
         self.at_noon.cancel()
+        self.at_every_hour.cancel()
         return None
 
     @commands.Cog.listener()
@@ -80,12 +80,12 @@ class Petto(commands.Cog):
         else:
             player_id = message.author.id
             if ((self.bot.user in message.mentions)
-                    or (self.bot.get_guild(self.guild_id).me.top_role in message.role_mentions)
+                    or (message.guild.me.top_role in message.role_mentions)
                     or ((message.reference and isinstance(message.reference.resolved, Message)
                         and (message.reference.resolved.author == self.bot.user)))):
                 await self.stage.reply_random(message)
             elif (not message.author.bot) and (random() < 0.02):
-                await self.stage.send_random_text(message.channel)
+                await self.stage.send_random_chat(message.channel)
         self.stats.update_posts(player_id, 1)
         return None
 
@@ -124,17 +124,19 @@ class Petto(commands.Cog):
     @master.command()
     async def initialize(self, interaction: Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
-        # Initialize Geppetto Egg
-        await self.bot.user.edit(avatar=Path(f"petto/imgs/{Egg.avatar}.png").read_bytes(), username=Egg.alias)
-        self.state = State(age=0, hunger=5, hygiene=0, power=0, stage=0, thirst=0, weight=10, overwrite_file=True)
-        self.stage = self.stages[0](self.state, self.stats.get_player(self.bot.user.id))
+        # Initialize Geppetto Egg:
+        await self.bot.user.edit(
+            avatar=Path(f"petto/stg/img/{Egg.avatar_img}").read_bytes(), username=Egg.alias)
+        self.state = State(self.bot.user.id, 0, 5, 0, 0, 0, 0, 10, True)
+        self.stage = Egg(self.state, self.stats)
         self.stats.reset()
-        # Initialize Specter
-        with open(f"petto/imgs/specter.png", 'rb') as f:
+        # Initialize Specter:
+        with open(f"petto/stg/img/{Egg.specter_class.avatar_img}", 'rb') as f:
             avatar_bytes = f.read()
-        webhook = await interaction.guild.system_channel.create_webhook(name='😈Specter', avatar=avatar_bytes)
+        webhook = await interaction.guild.system_channel.create_webhook(
+            name=Egg.specter_class.alias, avatar=avatar_bytes)
         self.stats.create_player(webhook.id)
-        await webhook.send(('Geppetto appeared in your server.\n'
-            f"Interact by calling {self.bot.user.mention} or /{self.bot.user.display_name}."))
+        # Initial post:
+        await self.stage.send_random_chat(interaction.guild.system_channel)
         await interaction.followup.send('Initialized.', ephemeral=True)
         return None
