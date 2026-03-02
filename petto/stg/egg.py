@@ -1,14 +1,12 @@
 from random import random
-from typing import Union
 
-from discord import ButtonStyle, Interaction, Message, NotFound
+from discord import ButtonStyle, Interaction, NotFound
 from discord.ui import button, Button
 
 from petto.stg.base import Chat, Stage, StageView
 
 
 queue = 0
-curr_message = None
 
 
 class Egg(Stage):
@@ -31,7 +29,7 @@ class Egg(Stage):
 
         @button(label='🫳', style=ButtonStyle.blurple)
         async def peekaboo(self, interaction: Interaction, button: Button) -> None:
-            global curr_message, queue
+            global queue
             queue += 1
             message = interaction.message
             while queue > 0:
