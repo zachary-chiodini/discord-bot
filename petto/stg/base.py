@@ -76,7 +76,7 @@ class Specter(Base):
                 await self.last_chat.delete()
             except NotFound:
                 pass
-        self.last_chat = await self.webhook.send(text, view=self.interface(self))
+        self.last_chat = await self.webhook.send(text, view=self.interface(self), wait=True)
         return self.last_chat
 
     async def send_random_chat(self) -> Message:
@@ -127,11 +127,14 @@ class Specter(Base):
             await self.specter.pause(5)
             message = await self.specter.send_random_emote('angry')
             await self.specter.pause(5)
-            await message.delete()
+            try:
+                await message.delete()
+            except NotFound:
+                pass
             return None
 
         @button(label='🫳', style=ButtonStyle.blurple)
-        async def peekaboo(self, interaction: Interaction, button: Button) -> None:
+        async def poof(self, interaction: Interaction, button: Button) -> None:
             await interaction.message.delete()
             return None
 
