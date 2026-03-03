@@ -1,12 +1,49 @@
 from random import random
+from typing import List, Optional
 
-from discord import ButtonStyle, Interaction, NotFound
+from discord import ButtonStyle, Interaction, InteractionResponded, Message
+from discord.errors import NotFound
 from discord.ui import button, Button
 
 from petto.stg.base import Chat, Stage, StageView
 
 
-queue = 0
+class Track:
+
+    prize = 0
+    queue = 0
+
+    async def reset(self, buttons: List[Button], interaction: Interaction,
+            message: Message, view: StageView) -> None:
+        if self.prize:
+            self.prize = 0
+            for button in buttons:
+                button.disabled = False
+            await view.stage.pause(10)
+            try:
+                await interaction.followup.edit_message(message.id, view=view)
+            except NotFound:
+                pass
+        return None
+ 
+    async def update(self, n: int, buttons: Optional[List[Button]] = None,
+            interaction: Optional[Interaction] = None, view: Optional[StageView] = None) -> None:
+        if self.prize or (self.queue + n < 10):
+            self.queue += n
+            return None
+        self.prize = 1
+        self.queue = 1
+        for button in buttons:
+            button.disabled = True
+        try:
+            await interaction.response.edit_message(view=view)
+        except NotFound:
+            pass
+        return None
+
+
+# Track is global to "track" API calls.
+track = Track()
 
 
 class Egg(Stage):
@@ -29,18 +66,17 @@ class Egg(Stage):
 
         @button(label='🫳', style=ButtonStyle.blurple)
         async def peekaboo(self, interaction: Interaction, button: Button) -> None:
-            global queue
-            queue += 1
+            global track
+            await track.update(+1, self.children, interaction, self)
             message = interaction.message
-            while queue:
-                print(queue)
+            while track.queue:
                 if random() < 0.95:
-                    i, prob = 0, [1, 0.5, 0.1, 0.1]
+                    i, prob = 0, [1.0, 0.5, 0.1, 0.1]
                     while random() < prob[i % len(prob)]:
                         try:
                             await message.delete()
                         except NotFound:
-                            queue += 1
+                            await track.update(+1, self.children, interaction, self)
                             return None
                         await self.stage.pause(5)
                         message = await self.stage.send_random_chat(interaction.channel)
@@ -49,8 +85,11 @@ class Egg(Stage):
                 else:
                     try:
                         await interaction.response.defer()
-                    except NotFound:
-                        queue += 1
+                    except InteractionResponded:
                         return None
-                queue -= 1
+                    except NotFound:
+                        await track.update(+1, self.children, interaction, self)
+                        return None
+                await track.update(-1)
+            await track.reset(self.children, interaction, message, self)
             return None

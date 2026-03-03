@@ -39,8 +39,9 @@ class Base:
     info_img: str
 
     def __init__(self):
-        self.interface = self.Interface
+        self.interface = self.Interface(self)
         self.last_chat: Union[Message, None] = None
+        self.last_reply: Union[Message, None] = None
 
     @staticmethod
     async def pause(n: int) -> None:
@@ -76,7 +77,7 @@ class Specter(Base):
                 await self.last_chat.delete()
             except NotFound:
                 pass
-        self.last_chat = await self.webhook.send(text, view=self.interface(self), wait=True)
+        self.last_chat = await self.webhook.send(text, view=self.interface, wait=True)
         return self.last_chat
 
     async def send_random_chat(self) -> Message:
@@ -124,7 +125,7 @@ class Specter(Base):
         async def attack(self, interaction: Interaction, button: Button) -> None:
             await interaction.message.delete()
             self.specter.stats.update_health(self.specter.webhook.id, -1)
-            await self.specter.pause(5)
+            await self.specter.pause(3)
             message = await self.specter.send_random_emote('angry')
             await self.specter.pause(5)
             try:
@@ -166,20 +167,23 @@ class Stage(Base):
         raise Exception('Webhook not found.')
 
     async def reply(self, message: Message, text: str) -> Message:
-        message = await message.reply(text, view=self.interface(self))
-        return message
+        await self._del_last_chat()
+        if self.last_reply:
+            try:
+                await self.last_reply.delete()
+            except NotFound:
+                pass
+        self.last_chat = await message.reply(text, view=self.interface)
+        self.last_reply = message
+        return self.last_chat
 
     async def reply_random(self, message: Message) -> Message:
         message = await self.reply(message, self.random_chat())
         return message
 
     async def send(self, channel: TextChannel, text: str) -> Message:
-        if self.last_chat:
-            try:
-                await self.last_chat.delete()
-            except NotFound:
-                pass
-        self.last_chat = await channel.send(text, view=self.interface(self))
+        await self._del_last_chat()
+        self.last_chat = await channel.send(text, view=self.interface)
         return self.last_chat
 
     async def send_random_chat(self, channel: TextChannel) -> Message:
@@ -207,6 +211,14 @@ class Stage(Base):
         specter = await self.get_specter(interaction)
         message = await specter.send(text)
         return message
+
+    async def _del_last_chat(self) -> None:
+        if self.last_chat:
+            try:
+                await self.last_chat.delete()
+            except NotFound:
+                pass
+        return None
 
 
 class StageView(View):
