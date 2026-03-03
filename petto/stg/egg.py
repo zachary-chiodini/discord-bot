@@ -32,7 +32,7 @@ class Egg(Stage):
             global queue
             queue += 1
             message = interaction.message
-            while queue > 0:
+            while queue:
                 print(queue)
                 if random() < 0.95:
                     i, prob = 0, [1, 0.5, 0.1, 0.1]
