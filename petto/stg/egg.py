@@ -19,11 +19,11 @@ class Track:
             self.prize = 0
             for button in buttons:
                 button.disabled = False
-            await view.stage.pause(10)
             try:
                 await interaction.followup.edit_message(message.id, view=view)
             except NotFound:
                 pass
+            await view.stage.specter_send(interaction, 'You got a Geppetto Point!')
         return None
  
     async def update(self, n: int, buttons: Optional[List[Button]] = None,

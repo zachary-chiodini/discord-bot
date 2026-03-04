@@ -1,10 +1,10 @@
 from asyncio import sleep
 from random import choice, random
-from typing import List, Type, TypedDict, Union
+from typing import List, Optional, Type, TypedDict, Union
 from typing_extensions import NotRequired
 
 from discord import (ButtonStyle, Color, Embed, File, Interaction, Message, NotFound, TextChannel, Webhook)
-from discord.ui import button, Button, View
+from discord.ui import button, Button, Item, View
 from emoji import replace_emoji
 
 from petto.state import State
@@ -39,7 +39,7 @@ class Base:
     info_img: str
 
     def __init__(self):
-        self.interface = self.Interface(self)
+        self.interface = self.Interface
         self.last_chat: Union[Message, None] = None
         self.last_reply: Union[Message, None] = None
 
@@ -71,29 +71,32 @@ class Specter(Base):
         self.stats = stats
         self.webhook = webhook
 
-    async def send(self, text: str) -> Message:
+    async def send(self, text: str, items: Optional[List[Item]] = None) -> Message:
         if self.last_chat:
             try:
                 await self.last_chat.delete()
             except NotFound:
                 pass
-        self.last_chat = await self.webhook.send(text, view=self.interface, wait=True)
+        self.last_chat = await self.webhook.send(text, view=self.interface(self, items), wait=True)
         return self.last_chat
 
-    async def send_random_chat(self) -> Message:
-        message = await self.send(self.random_chat())
+    async def send_random_chat(self, items: Optional[List[Item]] = None) -> Message:
+        message = await self.send(self.random_chat(), items)
         return message
 
-    async def send_random_emote(self, key: str) -> Message:
-        message = await self.send(self.random_emote(key))
+    async def send_random_emote(self, key: str, items: Optional[List[Item]] = None) -> Message:
+        message = await self.send(self.random_emote(key), items)
         return message
 
     class Interface(View):
 
-        def __init__(self, specter: Specter):
+        def __init__(self, specter: Specter, items: Optional[List[Item]] = None):
             super().__init__(timeout=None)
             self.specter = specter
             self.toggle = False
+            if items:
+                for item in items:
+                    self.add_item(item)
 
         @button(label='🔍', style=ButtonStyle.grey)
         async def info(self, interaction: Interaction, button: Button) -> None:
@@ -108,7 +111,7 @@ class Specter(Base):
                 button.label = '🔺'
                 self.toggle = True
                 embed = Embed(title=f"Level {self.specter.player.level} {replace_emoji(self.specter.alias, '')}",
-                    description='A disembodied voice that appears out of thin air from all directions without an apparent source.',
+                    description='A disembodied voice appears out of thin air from all directions without an apparent source.',
                     color=Color.from_str('#89CFF0'))
                 embed.add_field(name='Health', value=display_value(self.specter.player.health, '❤️', '🖤'))
                 embed.add_field(name='Mood', value=self.specter.player.mood)
@@ -121,23 +124,38 @@ class Specter(Base):
             await interaction.edit_original_response(**attach, view=self)
             return None
 
-        @button(label='⚔️', style=ButtonStyle.danger)
-        async def attack(self, interaction: Interaction, button: Button) -> None:
-            await interaction.message.delete()
-            self.specter.stats.update_health(self.specter.webhook.id, -1)
-            await self.specter.pause(3)
-            message = await self.specter.send_random_emote('angry')
-            await self.specter.pause(5)
-            try:
-                await message.delete()
-            except NotFound:
-                pass
-            return None
+        def get_attack_button(self) -> Button:
+            async def callback(interaction: Interaction, button: Button) -> None:
+                await interaction.message.delete()
+                self.specter.stats.update_health(self.specter.webhook.id, -1)
+                await self.specter.pause(3)
+                message = await self.specter.send_random_emote('angry')
+                await self.specter.pause(5)
+                try:
+                    await message.delete()
+                except NotFound:
+                    pass
+                return None
+            button = Button(label='⚔️', style=ButtonStyle.danger)
+            button.callback = callback
+            return button
 
-        @button(label='🫳', style=ButtonStyle.blurple)
-        async def poof(self, interaction: Interaction, button: Button) -> None:
-            await interaction.message.delete()
-            return None
+        def get_poof_button(self) -> Button:
+            async def callback(interaction: Interaction, button: Button) -> None:
+                await interaction.message.delete()
+                return None
+            button = Button(label='🫳', style=ButtonStyle.blurple)
+            button.callback = callback
+            return button
+
+        def get_item_button(self, label: str) -> Button:
+            async def callback(interaction: Interaction, button: Button) -> None:
+                await interaction.response.defer()
+                
+                return None
+            button = Button(label=label, style=ButtonStyle.blurple)
+            button.callback = callback
+            return button
 
 
 class Stage(Base):
@@ -173,7 +191,7 @@ class Stage(Base):
                 await self.last_reply.delete()
             except NotFound:
                 pass
-        self.last_chat = await message.reply(text, view=self.interface)
+        self.last_chat = await message.reply(text, view=self.interface(self))
         self.last_reply = message
         return self.last_chat
 
@@ -183,7 +201,7 @@ class Stage(Base):
 
     async def send(self, channel: TextChannel, text: str) -> Message:
         await self._del_last_chat()
-        self.last_chat = await channel.send(text, view=self.interface)
+        self.last_chat = await channel.send(text, view=self.interface(self))
         return self.last_chat
 
     async def send_random_chat(self, channel: TextChannel) -> Message:
