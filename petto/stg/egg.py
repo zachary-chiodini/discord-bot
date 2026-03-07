@@ -1,13 +1,114 @@
 from random import random
 
-from discord import ButtonStyle, Interaction, Message
+from discord import ButtonStyle, Color, Embed, File, Interaction, Message, Webhook
 from discord.errors import NotFound, InteractionResponded
-from discord.ui import Button
+from discord.ui import button, Button
+from emoji import replace_emoji
 
-from petto.npc.specter import Specter
-from petto.stg.base import Chat, Stage
-from petto.state import State
-from petto.stats import Stats
+from petto.stg.bases import Chat, BaseStage, BaseView, Stage
+from petto.sts.state import State
+from petto.sts.stats import Stats
+
+
+class Specter(BaseStage):
+
+    alias = '😈Specter'
+    avatar_img = 'specter_avatar.png'
+    chat = Chat(
+        angry=['You fool!', "I'll turn you into an egg!", 'Fuck you!', 'The darkness has taken you!', 'Stop this!'],
+        neutral=['Abracadabra!', 'Boo!', 'Sim Sala Bim!', 'Poof!', 'Alakazam!', 'Ta-da!'])
+    death_img: str
+    info_img = 'specter_avatar.png'
+
+    def __init__(self, stats: Stats, webhook: Webhook):
+        super().__init__()
+        self.player = stats.get_player(webhook.id)
+        self.stats = stats
+        self.webhook = webhook
+        self.add_item(self.attack_button, self.poof_button)
+
+    def attack_button(self) -> Button:
+        async def callback(interaction: Interaction) -> None:
+            await interaction.message.delete()
+            self.stats.update_health(self.webhook.id, -1)
+            await self.pause(3)
+            message = await self.send_random_emote('angry')
+            await self.pause(5)
+            try:
+                await message.delete()
+            except NotFound:
+                pass
+            return None
+        button = Button(label='⚔️', style=ButtonStyle.danger)
+        button.callback = callback
+        return button
+
+    def poof_button(self) -> Button:
+        async def callback(interaction: Interaction) -> None:
+            await interaction.message.delete()
+            return None
+        button = Button(label='🫳', style=ButtonStyle.blurple)
+        button.callback = callback
+        return button
+
+    def water_button(self, stage: Egg) -> Button:
+        async def callback(interaction: Interaction) -> None:
+            await interaction.message.delete()
+            self.remove_item(self.water_button)
+            self.add_item(self.poof_button)
+            stage.remove_item(stage.peekaboo_button)
+            stage.add_item(stage.water_button)
+            await self.pause(5)
+            await stage.send_random_chat(interaction.channel)
+            return None
+        button = Button(label='🪙➡️💧', style=ButtonStyle.green)
+        button.callback = callback
+        return button
+
+    async def send(self, text: str) -> Message:
+        if self.last_chat:
+            try:
+                await self.last_chat.delete()
+            except NotFound:
+                pass
+        self.last_chat = await self.webhook.send(text, view=self.interface(self), wait=True)
+        return self.last_chat
+
+    async def send_random_chat(self) -> Message:
+        message = await self.send(self.random_chat())
+        return message
+
+    async def send_random_emote(self, key: str) -> Message:
+        message = await self.send(self.random_emote(key))
+        return message
+
+    class Interface(BaseView):
+
+        @button(label='🔍', style=ButtonStyle.grey)
+        async def info(self, interaction: Interaction, button: Button) -> None:
+            def display_value(stat: int, full_bar: str, empty_bar: str) -> str:
+                return (stat * full_bar) + ((5 - stat) * empty_bar)
+            await interaction.response.defer()
+            if self.toggle:
+                attach = {'attachments': [], 'embeds': []}
+                button.label = '🔍'
+                self.toggle = False
+            else:
+                button.label = '🔺'
+                self.toggle = True
+                embed = Embed(title=f"Level {self.stage.player.level} {replace_emoji(self.stage.alias, '')}",
+                    description='A disembodied voice appears out of thin air from all directions without an apparent source.',
+                    color=Color.from_str('#89CFF0'))
+                embed.add_field(name='Health', value=display_value(self.stage.player.health, '❤️', '🖤'))
+                embed.add_field(name='Mood', value=self.stage.player.mood)
+                embed.add_field(name='Posts', value=self.stage.player.posts)
+                embed.add_field(name='Score', value=self.stage.player.score)
+                embed.set_image(url=f"attachment://{self.stage.info_img}")
+                file = File(f"petto/stg/img/{self.stage.info_img}",
+                    filename=f"{self.stage.info_img}")
+                attach = {'attachments': [file], 'embeds': [embed]}
+            await interaction.edit_original_response(**attach, view=self)
+            return None
 
 
 class Track:
@@ -15,18 +116,30 @@ class Track:
     prize = 0
     queue = 0
 
-    async def reset(self) -> None:
+    async def reset(self, egg: Egg, interaction: Interaction) -> None:
         if self.prize:
             self.prize = 0
-            #view.add_item(view.stage.get_item_button('🪙'))
+            self.queue = 0
+            egg.remove_item(egg.attack_button, egg.coin_button)
+            egg.add_item(egg.attack_button, egg.coin_button)
+            await egg.del_last_chat()
+            await egg.pause(5)
+            await egg.send_random_chat(interaction.channel)
         return None
- 
-    async def update(self, n: int) -> None:
-        if self.prize or (self.queue + n < 10):
+
+    def update(self, n: int, egg: Egg) -> None:
+        if (not self.prize) and (self.queue + n > 7):
+            self.prize = 1
+            self.queue = 1
+            attack_button = egg.attack_button()
+            attack_button.disabled = True
+            coin_button = egg.coin_button()
+            coin_button.disabled = True
+            egg.remove_item(egg.peekaboo_button)
+            egg.add_item((egg.attack_button.__name__, attack_button),
+                (egg.coin_button.__name__, coin_button))
+        elif self.queue + n >= 0:
             self.queue += n
-            return None
-        self.prize = 1
-        self.queue = 1
         return None
 
 
@@ -48,8 +161,9 @@ class Egg(Stage):
     def __init__(self, state: State, stats: Stats):
         super().__init__(state, stats)
         self._specter = None
-        self.add_item((self.attack_button.__name__, self.attack_button()),
-            (self.peekaboo_button.__name__, self.peekaboo_button()))
+        attack_button = self.attack_button()
+        attack_button.disabled = True
+        self.add_item((self.attack_button.__name__, attack_button), self.peekaboo_button)
 
     def attack_button(self) -> Button:
         async def callback(interaction: Interaction) -> None:
@@ -59,6 +173,18 @@ class Egg(Stage):
                 interaction, f"Do not attack {interaction.guild.me.mention}!")
             return None
         button = Button(label='⚔️', style=ButtonStyle.danger)
+        button.callback = callback
+        return button
+
+    def clean_button(self) -> Button:
+        async def callback(interaction: Interaction) -> None:
+            await interaction.response.defer()
+            self.state.update_hygiene(+1)
+            self.remove_item(self.clean_button)
+            self.add_item(self.peekaboo_button)
+            await self.update(interaction)
+            return None
+        button = Button(label='🪥', style=ButtonStyle.blurple)
         button.callback = callback
         return button
 
@@ -72,8 +198,8 @@ class Egg(Stage):
             specter = await self.get_specter(interaction)
             specter.remove_item(specter.poof_button)
             specter.add_item((specter.water_button.__name__, specter.water_button(self)))
-            self.pause(5)
-            await specter.send_random_emote('neutral')
+            await self.pause(5)
+            await specter.send('You found a Geppetto Point!')
             return None
         button = Button(label='🪙', style=ButtonStyle.green)
         button.callback = callback
@@ -92,7 +218,7 @@ class Egg(Stage):
     def peekaboo_button(self) -> Button:
         async def callback(interaction: Interaction) -> None:
             global track
-            await track.update(+1)
+            track.update(+1, self)
             message = interaction.message
             while track.queue:
                 if random() < 0.95:
@@ -101,7 +227,7 @@ class Egg(Stage):
                         try:
                             await message.delete()
                         except NotFound:
-                            await track.update(+1)
+                            track.update(+1, self)
                             return None
                         await self.pause(5)
                         message = await self.send_random_chat(interaction.channel)
@@ -113,10 +239,10 @@ class Egg(Stage):
                     except InteractionResponded:
                         return None
                     except NotFound:
-                        await track.update(+1)
+                        track.update(+1, self)
                         return None
-                await track.update(-1)
-            await track.reset()
+                track.update(-1, self)
+            await track.reset(self, interaction)
             return None
         button = Button(label='🫳', style=ButtonStyle.blurple)
         button.callback = callback
@@ -130,6 +256,10 @@ class Egg(Stage):
     def water_button(self) -> Button:
         async def callback(interaction: Interaction) -> None:
             await interaction.response.defer()
+            self.state.update_thirst(+1)
+            self.remove_item(self.water_button)
+            self.add_item(self.clean_button)
+            await self.update(interaction)
             return None
         button = Button(label='🫗', style=ButtonStyle.blurple)
         button.callback = callback

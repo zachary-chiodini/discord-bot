@@ -3,16 +3,16 @@ from random import choice, random
 from typing import Callable, Dict, List, Tuple, Type, TypedDict, Union
 from typing_extensions import NotRequired
 
-from discord import ButtonStyle, Color, Embed, File, Interaction, Message, NotFound, TextChannel
+from discord import ButtonStyle, Color, Embed, File, Interaction, Message, TextChannel
+from discord.errors import NotFound
 from discord.ui import button, Button, Item, View
 from emoji import replace_emoji
 
-from petto.state import State
-from petto.stats import Stats
+from petto.sts.state import State
+from petto.sts.stats import Stats
 
 
-CallableItem = Callable[..., Item]
-DynamicItem = Tuple[CallableItem.__name__, Item]
+DynamicItem = Union[Callable, Tuple[str, Item]]
 
 
 class Chat(TypedDict):
@@ -57,7 +57,10 @@ class BaseStage:
 
     def add_item(self, *dynamic_items: DynamicItem) -> None:
         for item in dynamic_items:
-            self.items[item[0]] = item[1]
+            if isinstance(item, Callable):
+                self.items[item.__name__] = item()
+            elif isinstance(item, Tuple):
+                self.items[item[0]] = item[1]
         return None
 
     @staticmethod
@@ -71,7 +74,7 @@ class BaseStage:
     def random_emote(self, key: str) -> str:
         return choice(self.chat[key])
 
-    def remove_item(self, *callable_item: CallableItem) -> None:
+    def remove_item(self, *callable_item: Callable) -> None:
         for callable in callable_item:
             del self.items[callable.__name__]
         return None
@@ -95,17 +98,21 @@ class Stage(BaseStage):
         self.state = state
         self.stats = stats
 
-    async def delete(self) -> None:
-        await self._del_last_chat()
-        if self.last_reply:
+    async def del_last_chat(self) -> None:
+        if self.last_chat:
             try:
-                await self.last_reply.delete()
+                await self.last_chat.delete()
             except NotFound:
                 pass
         return None
 
     async def reply(self, message: Message, text: str) -> Message:
-        await self.delete()
+        await self.del_last_chat()
+        if self.last_reply:
+            try:
+                await self.last_reply.delete()
+            except NotFound:
+                pass
         self.last_chat = await message.reply(text, view=self.interface(self))
         self.last_reply = message
         return self.last_chat
@@ -115,7 +122,7 @@ class Stage(BaseStage):
         return message
 
     async def send(self, channel: TextChannel, text: str) -> Message:
-        await self._del_last_chat()
+        await self.del_last_chat()
         self.last_chat = await channel.send(text, view=self.interface(self))
         return self.last_chat
 
@@ -140,12 +147,12 @@ class Stage(BaseStage):
             message = self.send_random_chat(interaction.guild.system_channel)
         return message
 
-    async def _del_last_chat(self) -> None:
-        if self.last_chat:
-            try:
-                await self.last_chat.delete()
-            except NotFound:
-                pass
+    async def update(self, interaction: Interaction) -> None:
+        if interaction.response.is_done():
+            await interaction.followup.edit_message(
+                interaction.message.id, view=self.Interface(self))
+            return None
+        await interaction.response.edit_message(view=self.Interface(self))
         return None
 
     class Interface(BaseView):
@@ -178,5 +185,8 @@ class Stage(BaseStage):
                 file = File(f"petto/stg/img/{self.stage.info_img}",
                     filename=f"{self.stage.info_img}")
                 attach = {'attachments': [file], 'embeds': [embed]}
-            await interaction.edit_original_response(**attach, view=self)
+            try:
+                await interaction.edit_original_response(**attach, view=self)
+            except NotFound:
+                pass
             return None

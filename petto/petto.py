@@ -2,17 +2,16 @@ from datetime import time, timezone
 from pathlib import Path
 from random import random
 
-from discord import (app_commands, Color, Guild, Interaction, Member, Message,  MessageType,
+from discord import (app_commands, Guild, Interaction, Member, Message,  MessageType,
     Permissions, RawBulkMessageDeleteEvent, RawMessageDeleteEvent, RawMessageUpdateEvent,
     RawReactionActionEvent)
 from discord.ext import commands, tasks
-from emoji import is_emoji
 
 from paint.paint import Paint
 
 from petto.stg.egg import Egg
-from petto.state import State
-from petto.stats import Stats
+from petto.sts.state import State
+from petto.sts.stats import Stats
 
 
 class Petto(commands.Cog):
@@ -26,8 +25,7 @@ class Petto(commands.Cog):
 
     @tasks.loop(time=time(hour=0, minute=0, tzinfo=timezone.utc))
     async def at_midnight(self) -> None:
-        self.state.update('age', 1)
-        return None
+        pass
 
     @tasks.loop(time=time(hour=12, minute=0, tzinfo=timezone.utc))
     async def at_noon(self) -> None:

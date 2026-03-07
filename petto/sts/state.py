@@ -7,8 +7,8 @@ class State:
     database = Path('petto/txt/state.txt')
     friends = {}
 
-    def __init__(self, bot_id: int, age: int = 0, hunger: int = 0, hygiene: int = 0,
-            power: int = 0, stage: int = 0, thirst: int = 0, weight: int = 0,
+    def __init__(self, bot_id: int, age: int = 0, hunger: int = 5, hygiene: int = 0,
+            power: int = 0, stage: int = 0, thirst: int = 0, weight: int = 10,
             overwrite: bool = False):
         self.id = bot_id
         self.age = age
@@ -45,8 +45,23 @@ class State:
             form = f"{form}\n{friend_id},{strength}"
         return f"{form}\n"
 
-    def update(self, field: str, n: int) -> None:
-        setattr(self, field, n)
+    def update_hygiene(self, n: int) -> None:
+        if self.hygiene + n > 5:
+            self.hygiene = 5
+        elif self.hygiene + n < 0:
+            self.hygiene = 0
+        else:
+            self.hygiene += n
+        self._save()
+        return None
+
+    def update_thirst(self, n: int) -> None:
+        if self.thirst + n > 5:
+            self.thirst = 5
+        elif self.thirst + n < 0:
+            self.thirst = 0
+        else:
+            self.thirst += n
         self._save()
         return None
 
