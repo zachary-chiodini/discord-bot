@@ -6,6 +6,8 @@ from discord.errors import NotFound
 from discord.ui import button, Button
 
 from petto.stg.base import Chat, Stage, StageView
+from petto.state import State
+from petto.stats import Stats
 
 
 class Track:
@@ -17,13 +19,7 @@ class Track:
             message: Message, view: StageView) -> None:
         if self.prize:
             self.prize = 0
-            for button in buttons:
-                button.disabled = False
-            try:
-                await interaction.followup.edit_message(message.id, view=view)
-            except NotFound:
-                pass
-            await view.stage.specter_send(interaction, 'You got a Geppetto Point!')
+            view.add_item(view.stage.get_item_button('🪙'))
         return None
  
     async def update(self, n: int, buttons: Optional[List[Button]] = None,
@@ -53,6 +49,7 @@ class Egg(Stage):
     chat = Chat(neutral=['Crack', 'Tap', 'Peep', 'Squeak', 'Chirp'])
     death_img = 'egg_death.png'
     info_img = 'egg_info.png'
+
 
     class Interface(StageView):
 

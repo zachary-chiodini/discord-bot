@@ -38,10 +38,18 @@ class Base:
     death_img: str
     info_img: str
 
-    def __init__(self):
-        self.interface = self.Interface
+    def __init__(self, *items: Item):
+        self.interface: View = self.Interface(self, *items)
         self.last_chat: Union[Message, None] = None
         self.last_reply: Union[Message, None] = None
+
+    def get_item_button(self, label: str) -> Button:
+        async def callback(interaction: Interaction, button: Button) -> None:
+            await interaction.response.defer()
+            return None
+        button = Button(label=label, style=ButtonStyle.blurple)
+        button.callback = callback
+        return button
 
     @staticmethod
     async def pause(n: int) -> None:
@@ -66,37 +74,60 @@ class Specter(Base):
     info_img = 'specter_avatar.png'
 
     def __init__(self, stats: Stats, webhook: Webhook):
-        super().__init__()
+        super().__init__(self.get_attack_button(), self.get_poof_button())
         self.player = stats.get_player(webhook.id)
         self.stats = stats
         self.webhook = webhook
 
-    async def send(self, text: str, items: Optional[List[Item]] = None) -> Message:
+    def get_attack_button(self) -> Button:
+        async def callback(interaction: Interaction, button: Button) -> None:
+            await interaction.message.delete()
+            self.stats.update_health(self.webhook.id, -1)
+            await self.pause(3)
+            message = await self.send_random_emote('angry')
+            await self.pause(5)
+            try:
+                await message.delete()
+            except NotFound:
+                pass
+            return None
+        button = Button(label='⚔️', style=ButtonStyle.danger)
+        button.callback = callback
+        return button
+
+    def get_poof_button(self) -> Button:
+        async def callback(interaction: Interaction, button: Button) -> None:
+            await interaction.message.delete()
+            return None
+        button = Button(label='🫳', style=ButtonStyle.blurple)
+        button.callback = callback
+        return button
+
+    async def send(self, text: str) -> Message:
         if self.last_chat:
             try:
                 await self.last_chat.delete()
             except NotFound:
                 pass
-        self.last_chat = await self.webhook.send(text, view=self.interface(self, items), wait=True)
+        self.last_chat = await self.webhook.send(text, view=self.interface, wait=True)
         return self.last_chat
 
-    async def send_random_chat(self, items: Optional[List[Item]] = None) -> Message:
-        message = await self.send(self.random_chat(), items)
+    async def send_random_chat(self) -> Message:
+        message = await self.send(self.random_chat())
         return message
 
-    async def send_random_emote(self, key: str, items: Optional[List[Item]] = None) -> Message:
-        message = await self.send(self.random_emote(key), items)
+    async def send_random_emote(self, key: str) -> Message:
+        message = await self.send(self.random_emote(key))
         return message
 
     class Interface(View):
 
-        def __init__(self, specter: Specter, items: Optional[List[Item]] = None):
+        def __init__(self, specter: Specter, *items: Item):
             super().__init__(timeout=None)
             self.specter = specter
             self.toggle = False
-            if items:
-                for item in items:
-                    self.add_item(item)
+            for item in items:
+                self.add_item(item)
 
         @button(label='🔍', style=ButtonStyle.grey)
         async def info(self, interaction: Interaction, button: Button) -> None:
@@ -123,39 +154,6 @@ class Specter(Base):
                 attach = {'attachments': [file], 'embeds': [embed]}
             await interaction.edit_original_response(**attach, view=self)
             return None
-
-        def get_attack_button(self) -> Button:
-            async def callback(interaction: Interaction, button: Button) -> None:
-                await interaction.message.delete()
-                self.specter.stats.update_health(self.specter.webhook.id, -1)
-                await self.specter.pause(3)
-                message = await self.specter.send_random_emote('angry')
-                await self.specter.pause(5)
-                try:
-                    await message.delete()
-                except NotFound:
-                    pass
-                return None
-            button = Button(label='⚔️', style=ButtonStyle.danger)
-            button.callback = callback
-            return button
-
-        def get_poof_button(self) -> Button:
-            async def callback(interaction: Interaction, button: Button) -> None:
-                await interaction.message.delete()
-                return None
-            button = Button(label='🫳', style=ButtonStyle.blurple)
-            button.callback = callback
-            return button
-
-        def get_item_button(self, label: str) -> Button:
-            async def callback(interaction: Interaction, button: Button) -> None:
-                await interaction.response.defer()
-                
-                return None
-            button = Button(label=label, style=ButtonStyle.blurple)
-            button.callback = callback
-            return button
 
 
 class Stage(Base):
@@ -191,7 +189,7 @@ class Stage(Base):
                 await self.last_reply.delete()
             except NotFound:
                 pass
-        self.last_chat = await message.reply(text, view=self.interface(self))
+        self.last_chat = await message.reply(text, view=self.interface)
         self.last_reply = message
         return self.last_chat
 
@@ -201,7 +199,7 @@ class Stage(Base):
 
     async def send(self, channel: TextChannel, text: str) -> Message:
         await self._del_last_chat()
-        self.last_chat = await channel.send(text, view=self.interface(self))
+        self.last_chat = await channel.send(text, view=self.interface)
         return self.last_chat
 
     async def send_random_chat(self, channel: TextChannel) -> Message:
@@ -241,10 +239,12 @@ class Stage(Base):
 
 class StageView(View):
 
-    def __init__(self, stage: Stage):
+    def __init__(self, stage: Stage, *items: Item):
         super().__init__(timeout=None)
         self.stage = stage
         self.toggle = False
+        for item in items:
+            self.add_item(item)
 
     @button(label='🔍', style=ButtonStyle.grey)
     async def info(self, interaction: Interaction, button: Button) -> None:
@@ -277,3 +277,8 @@ class StageView(View):
             attach = {'attachments': [file], 'embeds': [embed]}
         await interaction.edit_original_response(**attach, view=self)
         return None
+
+
+class Interface(StageView):
+
+    def __init__()
