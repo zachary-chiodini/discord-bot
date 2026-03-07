@@ -45,6 +45,11 @@ class State:
             form = f"{form}\n{friend_id},{strength}"
         return f"{form}\n"
 
+    def update_age(self, n: int) -> None:
+        self.age += n
+        self._save()
+        return None
+
     def update_hygiene(self, n: int) -> None:
         if self.hygiene + n > 5:
             self.hygiene = 5

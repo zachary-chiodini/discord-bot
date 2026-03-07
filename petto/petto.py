@@ -25,11 +25,13 @@ class Petto(commands.Cog):
 
     @tasks.loop(time=time(hour=0, minute=0, tzinfo=timezone.utc))
     async def at_midnight(self) -> None:
-        pass
+        self.state.update_age(+1)
+        return None
 
     @tasks.loop(time=time(hour=12, minute=0, tzinfo=timezone.utc))
     async def at_noon(self) -> None:
-        pass
+        await self.stage.send_random(self.bot.get_guild(self.guild_id))
+        return None
 
     @tasks.loop(hours=1)
     async def at_every_hour(self) -> None:

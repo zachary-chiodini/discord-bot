@@ -3,7 +3,7 @@ from random import choice, random
 from typing import Callable, Dict, List, Tuple, Type, TypedDict, Union
 from typing_extensions import NotRequired
 
-from discord import ButtonStyle, Color, Embed, File, Interaction, Message, TextChannel
+from discord import ButtonStyle, Color, Embed, File, Guild, Interaction, Message, TextChannel
 from discord.errors import NotFound
 from discord.ui import button, Button, Item, View
 from emoji import replace_emoji
@@ -134,17 +134,17 @@ class Stage(BaseStage):
         message = await self.send(channel, self.random_emote(key))
         return message
 
-    async def send_random(self, interaction: Interaction) -> Message:
-        member = interaction.guild.get_member(self.state.id)
+    async def send_random(self, guild: Guild) -> Message:
+        member = guild.get_member(self.state.id)
         channels = set()
-        for channel in interaction.guild.channels:
+        for channel in guild.channels:
             perms = channel.permissions_for(member)
             if perms.view_channel and perms.send_messages:
                 channels.add(channel)
         if channels:
             message = self.send_random_chat(choice(list(channels)))
         else:
-            message = self.send_random_chat(interaction.guild.system_channel)
+            message = self.send_random_chat(guild.system_channel)
         return message
 
     async def update(self, interaction: Interaction) -> None:
