@@ -2,10 +2,11 @@ from datetime import time, timezone
 from pathlib import Path
 from random import random
 
-from discord import (app_commands, Embed, File, Guild, Interaction, Member, Message,  MessageType,
+from discord import (app_commands, Color, Guild, Interaction, Member, Message,  MessageType,
     Permissions, RawBulkMessageDeleteEvent, RawMessageDeleteEvent, RawMessageUpdateEvent,
     RawReactionActionEvent)
 from discord.ext import commands, tasks
+from emoji import is_emoji
 
 from paint.paint import Paint
 
@@ -19,7 +20,6 @@ class Petto(commands.Cog):
     def __init__(self, bot: commands.Bot, guild_id: int):
         self.bot = bot
         self.guild_id = guild_id
-        self.items = []
         self.state = State(bot.user.id)
         self.stats = Stats()
         self.stage = Egg(self.state, self.stats)

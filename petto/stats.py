@@ -16,7 +16,7 @@ class Player:
         self.posts = posts
         self.reacts = reacts
         self.score = score
-        self.items = items
+        self.items = set(items)
 
     def calc_level(self) -> int:
         if not self.score:
