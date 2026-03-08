@@ -84,7 +84,7 @@ class Petto(commands.Cog):
                     or ((message.reference and isinstance(message.reference.resolved, Message)
                         and (message.reference.resolved.author == self.bot.user)))):
                 await self.stage.reply_random(message)
-            elif (not message.author.bot) and (random() < 0.02):
+            elif (not message.author.bot) and (random() < 0.1):
                 await self.stage.send_random_chat(message.channel)
         self.stats.update_posts(player_id, 1)
         return None
