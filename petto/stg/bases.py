@@ -5,7 +5,7 @@ from typing_extensions import NotRequired
 
 from discord import ButtonStyle, Color, Embed, File, Guild, Interaction, Message, TextChannel, Webhook
 from discord.errors import NotFound
-from discord.ui import button, Button, Item, View
+from discord.ui import Button, Item, View
 from emoji import replace_emoji
 
 from petto.sts.state import State
@@ -112,7 +112,8 @@ class Stage(BaseStage):
     async def info_callback(self, interaction: Interaction, button: Button) -> None:
         def display_value(stat: int, full_bar: str, empty_bar: str) -> str:
                 return (stat * full_bar) + ((5 - stat) * empty_bar)
-        await interaction.response.defer()
+        if not interaction.response.is_done():
+            await interaction.response.defer()
         if self.toggle:
             button.label = '🔍'
             self.toggle = False
@@ -203,7 +204,8 @@ class WebhookStage(BaseStage):
     async def info_callback(self, interaction: Interaction, button: Button) -> None:
         def display_value(stat: int, full_bar: str, empty_bar: str) -> str:
                 return (stat * full_bar) + ((5 - stat) * empty_bar)
-        await interaction.response.defer()
+        if not interaction.response.is_done():
+            await interaction.response.defer()
         if self.toggle:
             attach = {'attachments': [], 'embeds': []}
             button.label = '🔍'
