@@ -136,6 +136,7 @@ class Egg(Stage):
             self.remove_item(self.clean_button)
             self.add_item(self.peekaboo_button)
             await self.update(interaction)
+            await self.info_callback(interaction, button)
             return None
         button = Button(label='🪥', style=ButtonStyle.blurple)
         button.callback = callback
@@ -213,6 +214,7 @@ class Egg(Stage):
             self.remove_item(self.water_button)
             self.add_item(self.clean_button)
             await self.update(interaction)
+            await self.info_callback(interaction, button)
             return None
         button = Button(label='🫗', style=ButtonStyle.blurple)
         button.callback = callback

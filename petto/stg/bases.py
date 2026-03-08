@@ -58,6 +58,9 @@ class BaseStage:
         self.last_chat: Union[Message, None] = None
         self.last_reply: Union[Message, None] = None
         self.toggle = False
+        button = Button(label='🔍', style=ButtonStyle.grey)
+        button.callback = lambda interaction: self.info_callback(interaction, button)
+        self.add_item((self.info_callback.__name__, button))
 
     def add_item(self, *dynamic_items: DynamicItem) -> None:
         for item in dynamic_items:
@@ -68,7 +71,7 @@ class BaseStage:
         return None
 
     async def info_callback(self, interaction: Interaction, button: Button) -> None:
-        NotImplementedError('Method Callable[[Interaction, Button], None] not implemented.')
+        NotImplementedError(f"{self.__class__} must implement info_callback[[self, Interaction, Button], None] method.")
 
     @staticmethod
     async def pause(n: int) -> None:
@@ -87,11 +90,7 @@ class BaseStage:
         return None
 
     class Interface(BaseView):
-
-        @button(label='🔍', style=ButtonStyle.grey)
-        async def info(self, interaction: Interaction, button: Button) -> None:
-            await self.stage.info_callback(interaction, button)
-            return None
+        pass
 
 
 class Stage(BaseStage):
@@ -110,7 +109,7 @@ class Stage(BaseStage):
                 pass
         return None
 
-    async def info_callback(self, interaction, button) -> None:
+    async def info_callback(self, interaction: Interaction, button: Button) -> None:
         def display_value(stat: int, full_bar: str, empty_bar: str) -> str:
                 return (stat * full_bar) + ((5 - stat) * empty_bar)
         await interaction.response.defer()
@@ -222,7 +221,7 @@ class WebhookStage(BaseStage):
             file = File(f"petto/stg/img/{self.info_img}",
                 filename=f"{self.info_img}")
             attach = {'attachments': [file], 'embeds': [embed]}
-        await interaction.edit_original_response(**attach, view=self)
+        await interaction.edit_original_response(**attach, view=self.Interface(self))
         return None
 
     async def send(self, text: str) -> Message:
