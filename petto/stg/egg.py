@@ -4,7 +4,7 @@ from discord import ButtonStyle, Interaction, Message, Webhook
 from discord.errors import NotFound, InteractionResponded
 from discord.ui import Button
 
-from petto.stg.bases import Chat, Stage, WebhookStage
+from petto.stg._bases import Chat, Stage, WebhookStage
 from petto.sts.state import State
 from petto.sts.stats import Stats
 
