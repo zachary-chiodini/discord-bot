@@ -1,6 +1,6 @@
 from asyncio import sleep
 from random import choice, random
-from typing import Callable, Dict, List, Tuple, Type, TypedDict, Union
+from typing import Callable, Dict, List, Tuple, TypedDict, Union
 from typing_extensions import NotRequired
 
 from discord import ButtonStyle, Color, Embed, File, Guild, Interaction, Message, TextChannel, Webhook
@@ -34,6 +34,15 @@ class Chat(TypedDict):
     neutral: NotRequired[List[str]]
 
 
+class BaseView(View):
+
+    def __init__(self, stage: BaseStage):
+        super().__init__(timeout=None)
+        self.stage = stage
+        for item in self.stage.items.values():
+            self.add_item(item)
+
+
 class BaseStage:
 
     alias: str
@@ -45,15 +54,10 @@ class BaseStage:
     info_img: str
 
     def __init__(self):
-        self._interface: Type[BaseView] = self.Interface
         self.items: Dict[str, Item] = {}
         self.last_chat: Union[Message, None] = None
         self.last_reply: Union[Message, None] = None
-
-    def __init_subclass__(cls: Type['Stage']):
-        super().__init_subclass__()
-        if not hasattr(cls, 'Interface'):
-            raise TypeError('Undefined nested class Interface.')
+        self.toggle = False
 
     def add_item(self, *dynamic_items: DynamicItem) -> None:
         for item in dynamic_items:
@@ -62,6 +66,9 @@ class BaseStage:
             elif isinstance(item, Tuple):
                 self.items[item[0]] = item[1]
         return None
+
+    async def info_callback(self, interaction: Interaction, button: Button) -> None:
+        NotImplementedError('Method Callable[[Interaction, Button], None] not implemented.')
 
     @staticmethod
     async def pause(n: int) -> None:
@@ -79,15 +86,12 @@ class BaseStage:
             del self.items[callable.__name__]
         return None
 
+    class Interface(BaseView):
 
-class BaseView(View):
-
-    def __init__(self, stage: BaseStage):
-        super().__init__(timeout=None)
-        self.stage = stage
-        self.toggle = False
-        for item in self.stage.items.values():
-            self.add_item(item)
+        @button(label='🔍', style=ButtonStyle.grey)
+        async def info(self, interaction: Interaction, button: Button) -> None:
+            await self.stage.info_callback(interaction, button)
+            return None
 
 
 class Stage(BaseStage):
@@ -106,6 +110,39 @@ class Stage(BaseStage):
                 pass
         return None
 
+    async def info_callback(self, interaction, button) -> None:
+        def display_value(stat: int, full_bar: str, empty_bar: str) -> str:
+                return (stat * full_bar) + ((5 - stat) * empty_bar)
+        await interaction.response.defer()
+        if self.toggle:
+            button.label = '🔍'
+            self.toggle = False
+            attach = {'attachments': [], 'embeds': []}
+        else:
+            button.label = '🔺'
+            self.toggle = True
+            embed = Embed(title=f"Level {self.player.level} {replace_emoji(self.alias, ' ')}",
+                description=self.description, color=Color.from_str(self.color))
+            embed.add_field(name='Age', value=self.state.age)
+            embed.add_field(name='Health', value=display_value(self.player.health, '❤️', '🖤'))
+            embed.add_field(name='Hunger', value=display_value(self.state.hunger, '🍖', '🦴'))
+            embed.add_field(name='Thirst', value=display_value(self.state.thirst, '💧', '🌵'))
+            embed.add_field(name='Power', value=display_value(self.state.power, '⚡', '🥀'))
+            embed.add_field(name='Hygiene', value=display_value(self.state.hygiene, '🧼', '🦠'))
+            embed.add_field(name='Weight', value=f"{self.state.weight} kg")
+            embed.add_field(name='Mood', value=self.player.mood)
+            embed.add_field(name='Posts', value=self.player.posts)
+            embed.add_field(name='Score', value=self.player.score)
+            embed.set_image(url=f"attachment://{self.info_img}")
+            file = File(f"petto/stg/img/{self.info_img}",
+                filename=f"{self.info_img}")
+            attach = {'attachments': [file], 'embeds': [embed]}
+        try:
+            await interaction.edit_original_response(**attach, view=self.Interface(self))
+        except NotFound:
+            pass
+        return None
+
     async def reply(self, message: Message, text: str) -> Message:
         await self.del_last_chat()
         if self.last_reply:
@@ -113,7 +150,7 @@ class Stage(BaseStage):
                 await self.last_reply.delete()
             except NotFound:
                 pass
-        self.last_chat = await message.reply(text, view=self._interface(self))
+        self.last_chat = await message.reply(text, view=self.Interface(self))
         self.last_reply = message
         return self.last_chat
 
@@ -123,7 +160,7 @@ class Stage(BaseStage):
 
     async def send(self, channel: TextChannel, text: str) -> Message:
         await self.del_last_chat()
-        self.last_chat = await channel.send(text, view=self._interface(self))
+        self.last_chat = await channel.send(text, view=self.Interface(self))
         return self.last_chat
 
     async def send_random_chat(self, channel: TextChannel) -> Message:
@@ -155,42 +192,6 @@ class Stage(BaseStage):
         await interaction.response.edit_message(view=self.Interface(self))
         return None
 
-    class Interface(BaseView):
-
-        @button(label='🔍', style=ButtonStyle.grey)
-        async def info(self, interaction: Interaction, button: Button) -> None:
-            def display_value(stat: int, full_bar: str, empty_bar: str) -> str:
-                return (stat * full_bar) + ((5 - stat) * empty_bar)
-            await interaction.response.defer()
-            if self.toggle:
-                button.label = '🔍'
-                self.toggle = False
-                attach = {'attachments': [], 'embeds': []}
-            else:
-                button.label = '🔺'
-                self.toggle = True
-                embed = Embed(title=f"Level {self.stage.player.level} {replace_emoji(self.stage.alias, ' ')}",
-                    description=self.stage.description, color=Color.from_str(self.stage.color))
-                embed.add_field(name='Age', value=self.stage.state.age)
-                embed.add_field(name='Health', value=display_value(self.stage.player.health, '❤️', '🖤'))
-                embed.add_field(name='Hunger', value=display_value(self.stage.state.hunger, '🍖', '🦴'))
-                embed.add_field(name='Thirst', value=display_value(self.stage.state.thirst, '💧', '🌵'))
-                embed.add_field(name='Power', value=display_value(self.stage.state.power, '⚡', '🥀'))
-                embed.add_field(name='Hygiene', value=display_value(self.stage.state.hygiene, '🧼', '🦠'))
-                embed.add_field(name='Weight', value=f"{self.stage.state.weight} kg")
-                embed.add_field(name='Mood', value=self.stage.player.mood)
-                embed.add_field(name='Posts', value=self.stage.player.posts)
-                embed.add_field(name='Score', value=self.stage.player.score)
-                embed.set_image(url=f"attachment://{self.stage.info_img}")
-                file = File(f"petto/stg/img/{self.stage.info_img}",
-                    filename=f"{self.stage.info_img}")
-                attach = {'attachments': [file], 'embeds': [embed]}
-            try:
-                await interaction.edit_original_response(**attach, view=self)
-            except NotFound:
-                pass
-            return None
-
 
 class WebhookStage(BaseStage):
 
@@ -200,13 +201,37 @@ class WebhookStage(BaseStage):
         self.stats = stats
         self.webhook = webhook
 
+    async def info_callback(self, interaction: Interaction, button: Button) -> None:
+        def display_value(stat: int, full_bar: str, empty_bar: str) -> str:
+                return (stat * full_bar) + ((5 - stat) * empty_bar)
+        await interaction.response.defer()
+        if self.toggle:
+            attach = {'attachments': [], 'embeds': []}
+            button.label = '🔍'
+            self.toggle = False
+        else:
+            button.label = '🔺'
+            self.toggle = True
+            embed = Embed(title=f"Level {self.player.level} {replace_emoji(self.alias, '')}",
+                description=self.description, color=Color.from_str(self.color))
+            embed.add_field(name='Health', value=display_value(self.player.health, '❤️', '🖤'))
+            embed.add_field(name='Mood', value=self.player.mood)
+            embed.add_field(name='Posts', value=self.player.posts)
+            embed.add_field(name='Score', value=self.player.score)
+            embed.set_image(url=f"attachment://{self.info_img}")
+            file = File(f"petto/stg/img/{self.info_img}",
+                filename=f"{self.info_img}")
+            attach = {'attachments': [file], 'embeds': [embed]}
+        await interaction.edit_original_response(**attach, view=self)
+        return None
+
     async def send(self, text: str) -> Message:
         if self.last_chat:
             try:
                 await self.last_chat.delete()
             except NotFound:
                 pass
-        self.last_chat = await self.webhook.send(text, view=self._interface(self), wait=True)
+        self.last_chat = await self.webhook.send(text, view=self.Interface(self), wait=True)
         return self.last_chat
 
     async def send_random_chat(self) -> Message:
@@ -216,30 +241,3 @@ class WebhookStage(BaseStage):
     async def send_random_emote(self, key: str) -> Message:
         message = await self.send(self.random_emote(key))
         return message
-
-    class Interface(BaseView):
-
-        @button(label='🔍', style=ButtonStyle.grey)
-        async def info(self, interaction: Interaction, button: Button) -> None:
-            def display_value(stat: int, full_bar: str, empty_bar: str) -> str:
-                return (stat * full_bar) + ((5 - stat) * empty_bar)
-            await interaction.response.defer()
-            if self.toggle:
-                attach = {'attachments': [], 'embeds': []}
-                button.label = '🔍'
-                self.toggle = False
-            else:
-                button.label = '🔺'
-                self.toggle = True
-                embed = Embed(title=f"Level {self.stage.player.level} {replace_emoji(self.stage.alias, '')}",
-                    description=self.stage.description, color=self.stage.color)
-                embed.add_field(name='Health', value=display_value(self.stage.player.health, '❤️', '🖤'))
-                embed.add_field(name='Mood', value=self.stage.player.mood)
-                embed.add_field(name='Posts', value=self.stage.player.posts)
-                embed.add_field(name='Score', value=self.stage.player.score)
-                embed.set_image(url=f"attachment://{self.stage.info_img}")
-                file = File(f"petto/stg/img/{self.stage.info_img}",
-                    filename=f"{self.stage.info_img}")
-                attach = {'attachments': [file], 'embeds': [embed]}
-            await interaction.edit_original_response(**attach, view=self)
-            return None

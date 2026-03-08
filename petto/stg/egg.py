@@ -56,7 +56,7 @@ class Specter(WebhookStage):
             self.add_item(self.poof_button)
             stage.remove_item(stage.peekaboo_button)
             stage.add_item(stage.water_button)
-            await self.pause(5)
+            await self.pause(3)
             await stage.send_random_chat(interaction.channel)
             return None
         button = Button(label='🪙➡️💧', style=ButtonStyle.green)
@@ -76,14 +76,14 @@ class Track:
             egg.remove_item(egg.attack_button, egg.coin_button)
             egg.add_item(egg.attack_button, egg.coin_button)
             await egg.del_last_chat()
-            await egg.pause(5)
+            await egg.pause(3)
             await egg.send_random_chat(interaction.channel)
         return None
 
     def update(self, n: int, egg: Egg) -> None:
         if (not self.prize) and (self.queue + n > 7):
             self.prize = 1
-            self.queue = 1
+            self.queue = 2
             attack_button = egg.attack_button()
             attack_button.disabled = True
             coin_button = egg.coin_button()
@@ -151,7 +151,7 @@ class Egg(Stage):
             specter = await self.get_specter(interaction)
             specter.remove_item(specter.poof_button)
             specter.add_item((specter.water_button.__name__, specter.water_button(self)))
-            await self.pause(5)
+            await self.pause(3)
             await specter.send('You found a Geppetto Point!')
             return None
         button = Button(label='🪙', style=ButtonStyle.green)
