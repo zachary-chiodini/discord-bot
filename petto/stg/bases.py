@@ -58,9 +58,9 @@ class BaseStage:
         self.last_chat: Union[Message, None] = None
         self.last_reply: Union[Message, None] = None
         self.toggle = False
-        button = Button(label='🔍', style=ButtonStyle.grey)
-        button.callback = lambda interaction: self.info_callback(interaction, button)
-        self.add_item((self.info_callback.__name__, button))
+        self.info_button = Button(label='🔍', style=ButtonStyle.grey)
+        self.info_button.callback = self.info_callback
+        self.add_item((self.info_callback.__name__, self.info_button))
 
     def add_item(self, *dynamic_items: DynamicItem) -> None:
         for item in dynamic_items:
@@ -70,7 +70,20 @@ class BaseStage:
                 self.items[item[0]] = item[1]
         return None
 
-    async def info_callback(self, interaction: Interaction, button: Button) -> None:
+    async def call_info_callback(self, interaction: Interaction) -> None:
+        if self.toggle:
+            self.toggle = False
+        return await self.info_callback(interaction)
+
+    async def delete(self, message: Message) -> None:
+        if self.toggle:
+            self.toggle = False
+            self.info_button.label = '🔍'
+        self.last_chat = None
+        await message.delete()
+        return None
+
+    async def info_callback(self, interaction: Interaction) -> None:
         NotImplementedError(f"{self.__class__} must implement info_callback[[self, Interaction, Button], None] method.")
 
     @staticmethod
@@ -109,17 +122,17 @@ class Stage(BaseStage):
                 pass
         return None
 
-    async def info_callback(self, interaction: Interaction, button: Button) -> None:
+    async def info_callback(self, interaction: Interaction) -> None:
         def display_value(stat: int, full_bar: str, empty_bar: str) -> str:
                 return (stat * full_bar) + ((5 - stat) * empty_bar)
         if not interaction.response.is_done():
             await interaction.response.defer()
         if self.toggle:
-            button.label = '🔍'
+            self.info_button.label = '🔍'
             self.toggle = False
             attach = {'attachments': [], 'embeds': []}
         else:
-            button.label = '🔺'
+            self.info_button.label = '🔺'
             self.toggle = True
             embed = Embed(title=f"Level {self.player.level} {replace_emoji(self.alias, ' ')}",
                 description=self.description, color=Color.from_str(self.color))
@@ -201,17 +214,17 @@ class WebhookStage(BaseStage):
         self.stats = stats
         self.webhook = webhook
 
-    async def info_callback(self, interaction: Interaction, button: Button) -> None:
+    async def info_callback(self, interaction: Interaction) -> None:
         def display_value(stat: int, full_bar: str, empty_bar: str) -> str:
                 return (stat * full_bar) + ((5 - stat) * empty_bar)
         if not interaction.response.is_done():
             await interaction.response.defer()
         if self.toggle:
             attach = {'attachments': [], 'embeds': []}
-            button.label = '🔍'
+            self.info_button.label = '🔍'
             self.toggle = False
         else:
-            button.label = '🔺'
+            self.info_button.label = '🔺'
             self.toggle = True
             embed = Embed(title=f"Level {self.player.level} {replace_emoji(self.alias, '')}",
                 description=self.description, color=Color.from_str(self.color))

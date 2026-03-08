@@ -27,13 +27,13 @@ class Specter(WebhookStage):
 
     def attack_button(self) -> Button:
         async def callback(interaction: Interaction) -> None:
-            await interaction.message.delete()
+            await self.delete(interaction.message)
             self.stats.update_health(self.webhook.id, -1)
             await self.pause(3)
             message = await self.send_random_emote('angry')
             await self.pause(5)
             try:
-                await message.delete()
+                await self.delete(message)
             except NotFound:
                 pass
             return None
@@ -43,7 +43,7 @@ class Specter(WebhookStage):
 
     def poof_button(self) -> Button:
         async def callback(interaction: Interaction) -> None:
-            await interaction.message.delete()
+            await self.delete(interaction.message)
             return None
         button = Button(label='🫳', style=ButtonStyle.blurple)
         button.callback = callback
@@ -51,7 +51,7 @@ class Specter(WebhookStage):
 
     def water_button(self, stage: Egg) -> Button:
         async def callback(interaction: Interaction) -> None:
-            await interaction.message.delete()
+            await self.delete(interaction.message)
             self.remove_item(self.water_button)
             self.add_item(self.poof_button)
             stage.remove_item(stage.peekaboo_button)
@@ -120,7 +120,7 @@ class Egg(Stage):
 
     def attack_button(self) -> Button:
         async def callback(interaction: Interaction) -> None:
-            await interaction.message.delete()
+            await self.delete(interaction.message)
             self.stats.update_health(self.state.id, -1)
             await self.specter_send(
                 interaction, f"Do not attack {interaction.guild.me.mention}!")
@@ -136,7 +136,7 @@ class Egg(Stage):
             self.remove_item(self.clean_button)
             self.add_item(self.peekaboo_button)
             await self.update(interaction)
-            await self.info_callback(interaction, button)
+            await self.call_info_callback(interaction)
             return None
         button = Button(label='🪥', style=ButtonStyle.blurple)
         button.callback = callback
@@ -144,7 +144,7 @@ class Egg(Stage):
 
     def coin_button(self) -> Button:
         async def callback(interaction: Interaction) -> None:
-            await interaction.message.delete()
+            await self.delete(interaction.message)
             self.remove_item(self.coin_button)
             button = self.peekaboo_button()
             button.disabled = True
@@ -179,7 +179,7 @@ class Egg(Stage):
                     i, prob = 0, [1.0, 0.5, 0.1, 0.1]
                     while random() < prob[i % len(prob)]:
                         try:
-                            await message.delete()
+                            await self.delete(message)
                         except NotFound:
                             track.update(+1, self)
                             return None
@@ -214,7 +214,7 @@ class Egg(Stage):
             self.remove_item(self.water_button)
             self.add_item(self.clean_button)
             await self.update(interaction)
-            await self.info_callback(interaction, button)
+            await self.call_info_callback(interaction)
             return None
         button = Button(label='🫗', style=ButtonStyle.blurple)
         button.callback = callback
