@@ -59,8 +59,8 @@ class BaseStage:
         self.last_reply: Union[Message, None] = None
         self.toggle = False
         self.info_button = Button(label='🔍', style=ButtonStyle.grey)
-        self.info_button.callback = self.info_callback
-        self.add_item((self.info_callback.__name__, self.info_button))
+        self.info_button.callback = self._info_callback
+        self.add_item((self._info_callback.__name__, self.info_button))
 
     def add_item(self, *dynamic_items: DynamicItem) -> None:
         for item in dynamic_items:
@@ -73,7 +73,7 @@ class BaseStage:
     async def call_info_callback(self, interaction: Interaction) -> None:
         if self.toggle:
             self.toggle = False
-        return await self.info_callback(interaction)
+        return await self._info_callback(interaction)
 
     async def delete(self, message: Message) -> None:
         if self.toggle:
@@ -83,8 +83,8 @@ class BaseStage:
         await message.delete()
         return None
 
-    async def info_callback(self, interaction: Interaction) -> None:
-        NotImplementedError(f"{self.__class__} must implement info_callback[[self, Interaction, Button], None] method.")
+    async def _info_callback(self, interaction: Interaction) -> None:
+        NotImplementedError(f"{self.__class__} must implement _info_callback[[self, Interaction, Button], None] private method.")
 
     @staticmethod
     async def pause(n: int) -> None:
@@ -122,7 +122,7 @@ class Stage(BaseStage):
                 pass
         return None
 
-    async def info_callback(self, interaction: Interaction) -> None:
+    async def _info_callback(self, interaction: Interaction) -> None:
         def display_value(stat: int, full_bar: str, empty_bar: str) -> str:
                 return (stat * full_bar) + ((5 - stat) * empty_bar)
         if not interaction.response.is_done():
@@ -214,7 +214,7 @@ class WebhookStage(BaseStage):
         self.stats = stats
         self.webhook = webhook
 
-    async def info_callback(self, interaction: Interaction) -> None:
+    async def _info_callback(self, interaction: Interaction) -> None:
         def display_value(stat: int, full_bar: str, empty_bar: str) -> str:
                 return (stat * full_bar) + ((5 - stat) * empty_bar)
         if not interaction.response.is_done():
