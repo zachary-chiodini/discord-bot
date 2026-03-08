@@ -3,6 +3,9 @@ paint/__pycache__
 petto/__pycache__
 petto/stg/__pycache__
 petto/sts/__pycache__
-petto/txt
+petto/txt/guild.txt
+petto/txt/state.txt
+petto/txt/stats.txt
+petto/txt/token.txt
 slave/__pycache__
 venv
