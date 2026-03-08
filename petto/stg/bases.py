@@ -45,7 +45,7 @@ class BaseStage:
     info_img: str
 
     def __init__(self):
-        self.interface: Type[BaseView] = self.Interface
+        self._interface: Type[BaseView] = self.Interface
         self.items: Dict[str, Item] = {}
         self.last_chat: Union[Message, None] = None
         self.last_reply: Union[Message, None] = None
@@ -113,7 +113,7 @@ class Stage(BaseStage):
                 await self.last_reply.delete()
             except NotFound:
                 pass
-        self.last_chat = await message.reply(text, view=self.interface(self))
+        self.last_chat = await message.reply(text, view=self._interface(self))
         self.last_reply = message
         return self.last_chat
 
@@ -123,7 +123,7 @@ class Stage(BaseStage):
 
     async def send(self, channel: TextChannel, text: str) -> Message:
         await self.del_last_chat()
-        self.last_chat = await channel.send(text, view=self.interface(self))
+        self.last_chat = await channel.send(text, view=self._interface(self))
         return self.last_chat
 
     async def send_random_chat(self, channel: TextChannel) -> Message:
@@ -206,7 +206,7 @@ class WebhookStage(BaseStage):
                 await self.last_chat.delete()
             except NotFound:
                 pass
-        self.last_chat = await self.webhook.send(text, view=self.interface(self), wait=True)
+        self.last_chat = await self.webhook.send(text, view=self._interface(self), wait=True)
         return self.last_chat
 
     async def send_random_chat(self) -> Message:
