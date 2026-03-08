@@ -84,7 +84,7 @@ class BaseStage:
         return None
 
     async def _info_callback(self, interaction: Interaction) -> None:
-        NotImplementedError(f"{self.__class__} must implement _info_callback[[self, Interaction, Button], None] private method.")
+        NotImplementedError(f"{self.__class__} must implement _info_callback[[self, Interaction], None] private method.")
 
     @staticmethod
     async def pause(n: int) -> None:
