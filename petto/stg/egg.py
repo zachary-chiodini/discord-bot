@@ -1,16 +1,15 @@
 from random import random
 
-from discord import ButtonStyle, Color, Embed, File, Interaction, Message, Webhook
+from discord import ButtonStyle, Interaction, Message, Webhook
 from discord.errors import NotFound, InteractionResponded
-from discord.ui import button, Button
-from emoji import replace_emoji
+from discord.ui import Button
 
-from petto.stg.bases import Chat, BaseStage, BaseView, Stage
+from petto.stg.bases import Chat, Stage, WebhookStage
 from petto.sts.state import State
 from petto.sts.stats import Stats
 
 
-class Specter(BaseStage):
+class Specter(WebhookStage):
 
     alias = '😈Specter'
     avatar_img = 'specter_avatar.png'
@@ -21,10 +20,7 @@ class Specter(BaseStage):
     info_img = 'specter_avatar.png'
 
     def __init__(self, stats: Stats, webhook: Webhook):
-        super().__init__()
-        self.player = stats.get_player(webhook.id)
-        self.stats = stats
-        self.webhook = webhook
+        super().__init__(stats, webhook)
         self.add_item(self.attack_button, self.poof_button)
 
     def attack_button(self) -> Button:
@@ -64,51 +60,6 @@ class Specter(BaseStage):
         button = Button(label='🪙➡️💧', style=ButtonStyle.green)
         button.callback = callback
         return button
-
-    async def send(self, text: str) -> Message:
-        if self.last_chat:
-            try:
-                await self.last_chat.delete()
-            except NotFound:
-                pass
-        self.last_chat = await self.webhook.send(text, view=self.interface(self), wait=True)
-        return self.last_chat
-
-    async def send_random_chat(self) -> Message:
-        message = await self.send(self.random_chat())
-        return message
-
-    async def send_random_emote(self, key: str) -> Message:
-        message = await self.send(self.random_emote(key))
-        return message
-
-    class Interface(BaseView):
-
-        @button(label='🔍', style=ButtonStyle.grey)
-        async def info(self, interaction: Interaction, button: Button) -> None:
-            def display_value(stat: int, full_bar: str, empty_bar: str) -> str:
-                return (stat * full_bar) + ((5 - stat) * empty_bar)
-            await interaction.response.defer()
-            if self.toggle:
-                attach = {'attachments': [], 'embeds': []}
-                button.label = '🔍'
-                self.toggle = False
-            else:
-                button.label = '🔺'
-                self.toggle = True
-                embed = Embed(title=f"Level {self.stage.player.level} {replace_emoji(self.stage.alias, '')}",
-                    description='A disembodied voice appears out of thin air from all directions without an apparent source.',
-                    color=Color.from_str('#89CFF0'))
-                embed.add_field(name='Health', value=display_value(self.stage.player.health, '❤️', '🖤'))
-                embed.add_field(name='Mood', value=self.stage.player.mood)
-                embed.add_field(name='Posts', value=self.stage.player.posts)
-                embed.add_field(name='Score', value=self.stage.player.score)
-                embed.set_image(url=f"attachment://{self.stage.info_img}")
-                file = File(f"petto/stg/img/{self.stage.info_img}",
-                    filename=f"{self.stage.info_img}")
-                attach = {'attachments': [file], 'embeds': [embed]}
-            await interaction.edit_original_response(**attach, view=self)
-            return None
 
 
 class Track:
