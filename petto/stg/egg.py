@@ -16,7 +16,9 @@ class Specter(WebhookStage):
     chat = Chat(
         angry=['You fool!', "I'll turn you into an egg!", 'Fuck you!', 'The darkness has taken you!', 'Stop this!'],
         neutral=['Abracadabra!', 'Boo!', 'Sim Sala Bim!', 'Poof!', 'Alakazam!', 'Ta-da!'])
+    color = '#89CFF0'
     death_img: str
+    description = 'A disembodied voice appears out of thin air from all directions without an apparent source.'
     info_img = 'specter_avatar.png'
 
     def __init__(self, stats: Stats, webhook: Webhook):
